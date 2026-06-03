@@ -33,26 +33,37 @@ const syncAllTeamMembersToFirestore = async (): Promise<void> => {
           role: teamMember.role,
           nickname: teamMember.nickname,
         })
-} else if (!existing.login || !existing.password) {
-        // User exists but missing credentials - fill from TEAM_MEMBERS
-        logger.log('[syncAllTeamMembers] Filling missing credentials for:', teamMember.id)
+      } else {
+        // User exists - update credentials from TEAM_MEMBERS if they differ
+        logger.log('[syncAllTeamMembers] Updating user:', teamMember.id)
         const updates: Partial<User> = {}
-        if (!existing.login && teamMember.login) updates.login = teamMember.login
-        if (!existing.password && teamMember.password) updates.password = teamMember.password
-        if (!existing.recoveryCode && teamMember.recoveryCode) updates.recoveryCode = teamMember.recoveryCode
-        if (!existing.authCode && teamMember.authCode) updates.authCode = teamMember.authCode
-        if (!existing.phone && teamMember.phone) updates.phone = teamMember.phone
-        if (!existing.email && teamMember.email) updates.email = teamMember.email
-        if (!existing.name && teamMember.name) updates.name = teamMember.name
-        if (!existing.avatar && teamMember.avatar) updates.avatar = teamMember.avatar
-        if (!existing.role && teamMember.role) updates.role = teamMember.role
-        if (!existing.nickname && teamMember.nickname) updates.nickname = teamMember.nickname
+        
+        if (existing.login !== teamMember.login) {
+          updates.login = teamMember.login
+          logger.log('[syncAllTeamMembers] Login differs:', existing.login, '->', teamMember.login)
+        }
+        if (existing.password !== teamMember.password) {
+          updates.password = teamMember.password
+          logger.log('[syncAllTeamMembers] Password differs: existing=' + (existing.password ? existing.password.substring(0, 10) + '...' : 'empty') + ', updating to=' + (teamMember.password ? teamMember.password.substring(0, 10) + '...' : 'empty'))
+        }
+        if (existing.recoveryCode !== teamMember.recoveryCode) updates.recoveryCode = teamMember.recoveryCode
+        if (existing.authCode !== teamMember.authCode) updates.authCode = teamMember.authCode
+        if (existing.phone !== teamMember.phone) updates.phone = teamMember.phone
+        if (existing.email !== teamMember.email) updates.email = teamMember.email
+        if (existing.name !== teamMember.name) updates.name = teamMember.name
+        if (existing.avatar !== teamMember.avatar) updates.avatar = teamMember.avatar
+        if (existing.role !== teamMember.role) updates.role = teamMember.role
+        if (existing.nickname !== teamMember.nickname) updates.nickname = teamMember.nickname
         
         if (Object.keys(updates).length > 0) {
+          logger.log('[syncAllTeamMembers] Applying updates:', Object.keys(updates))
           await updateUser(teamMember.id, updates)
+          logger.log('[syncAllTeamMembers] Updates applied successfully for user:', teamMember.id)
+        } else {
+          logger.log('[syncAllTeamMembers] No updates needed for user:', teamMember.id)
         }
       }
-}
+    }
     logger.log('[syncAllTeamMembers] Sync complete')
   } catch (error: any) {
     logger.error('[syncAllTeamMembers] Error:', error?.code || error?.message || error)
@@ -69,17 +80,17 @@ const USER_EMAIL_MAP: Record<string, string> = {
 
 // Mapping from Firebase Auth uid to TEAM_MEMBERS userId
 const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
-  'diK8LipwVXV6ckh0up9rCPAeanP2': '1', // dexim (Артём) - admin
-  'SNCY1d79MQTB5XNUV52sDKN2Lcg2': '2', // enowk (Адель)
-  '86xBV98mryWrqqpBgM6Cg8iOJT33': '3', // xenia (Ксения) - admin
+  'FHwKUQvz5tZICvazx37Id2yWSd72': '1', // dexim (Артём) - admin
+  'YPGjIOIF5fPID7KuQNC0untA49E2': '2', // enowk (Адель)
+  'yeH1O6eYHzcYNo82zNC6wltkXYk2': '3', // xenia (Ксения) - admin
   'UybkXhhXyIhjmHHYnRC8V1yOQCJ2': '4', // olga (Ольга)
 }
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth uid
 const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
-  '1': 'diK8LipwVXV6ckh0up9rCPAeanP2', // dexim (Артём) - admin
-  '2': 'SNCY1d79MQTB5XNUV52sDKN2Lcg2', // enowk (Адель)
-  '3': '86xBV98mryWrqqpBgM6Cg8iOJT33', // xenia (Ксения) - admin
+  '1': 'FHwKUQvz5tZICvazx37Id2yWSd72', // dexim (Артём) - admin
+  '2': 'YPGjIOIF5fPID7KuQNC0untA49E2', // enowk (Адель)
+  '3': 'yeH1O6eYHzcYNo82zNC6wltkXYk2', // xenia (Ксения) - admin
   '4': 'UybkXhhXyIhjmHHYnRC8V1yOQCJ2', // olga (Ольга)
 }
 
@@ -745,11 +756,14 @@ login: async (login: string, password: string) => {
           const firestoreUsers = await getAllUsers()
           logger.log('[login] Firestore users count:', firestoreUsers.length)
           
-          // Find user by login (email) OR phone number
+          // Find user by login (email) OR phone number OR email field
           const normalizedInput = normalizedLogin.replace(/\D/g, '') // Remove all non-digits for phone comparison
           let firestoreUser = firestoreUsers.find((u) => {
             // Try email/login match first
             if (u.login === normalizedLogin) return true
+            
+            // Try email field match (for users who have email separate from login)
+            if (u.email && u.email === normalizedLogin) return true
             
             // Try phone match (normalize both to digits only)
             if (u.phone) {
@@ -762,24 +776,29 @@ login: async (login: string, password: string) => {
 
           if (firestoreUser) {
             logger.log('[login] ✅ Found user in Firestore:', firestoreUser.id, firestoreUser.login, 'phone:', firestoreUser.phone)
-            logger.log('[login] Firestore password:', firestoreUser.password ? 'exists' : 'empty')
+            logger.log('[login] Firestore password:', firestoreUser.password ? 'exists (length: ' + firestoreUser.password.length + ')' : 'empty')
+            logger.log('[login] Input password length:', password?.length)
+            logger.log('[login] Passwords match:', firestoreUser.password === password)
             
             // FIRST verify password - this is the main authentication
             if (firestoreUser.password !== password) {
               logger.log('[login] ❌ Password mismatch')
+              logger.log('[login] Expected (from Firestore):', firestoreUser.password?.substring(0, 10) + '...')
+              logger.log('[login] Received (input):', password?.substring(0, 10) + '...')
               return { success: false }
             }
             logger.log('[login] ✅ Password correct')
 
             // THEN check if user has authCode - require verification
             if (firestoreUser.authCode) {
-              logger.log('[login] User has authCode, requiring verification')
+              logger.log('[login] User has authCode:', firestoreUser.authCode, 'requiring verification')
               set({ 
                 pendingUserId: firestoreUser.id,
                 pendingAuthCode: firestoreUser.authCode 
               })
               return { success: true, requiresCode: true }
             }
+            logger.log('[login] No authCode required, proceeding with full login')
 
             // No authCode - proceed with full login
               const now = new Date().toISOString()
