@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { authenticateWithBiometric } from '@/utils/webAuthn'
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth email (deprecated - keeping for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const USER_EMAIL_MAP: Record<string, string> = {
   '1': 'dexim@antarctic-alpha.com',
   '2': 'enowk@antarctic-alpha.com',
@@ -15,6 +16,7 @@ const USER_EMAIL_MAP: Record<string, string> = {
 }
 
 // Mapping from Firebase Auth uid to TEAM_MEMBERS userId (deprecated)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
   'FHwKUQvz5tZICvazx37Id2yWSd72': '1', // dexim (Артём) - admin
   'YPGjIOIF5fPID7KuQNC0untA49E2': '2', // enowk (Адель)
@@ -23,6 +25,7 @@ const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
 }
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth uid (deprecated)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
   '1': 'FHwKUQvz5tZICvazx37Id2yWSd72', // dexim (Артём) - admin
   '2': 'YPGjIOIF5fPID7KuQNC0untA49E2', // enowk (Адель)
@@ -36,25 +39,20 @@ const FIREBASE_AUTH_PASSWORD = 'AntarcticAlpha2024!' // Same for all users
 
 // Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in (deprecated)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getUserIdByLoginOrPhone = (input: string): string | null => {
-  const normalizedInput = input.replace(/\D/g, '')
-  for (const tm of TEAM_MEMBERS) {
-    if (tm.login === input) return tm.id
-    if (tm.phone && tm.phone.replace(/\D/g, '') === normalizedInput) return tm.id
-  }
+const getUserIdByLoginOrPhone = (_input: string): string | null => {
   return null
 }
 
 // Get TEAM_MEMBERS userId from Firebase Auth uid (deprecated)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getUserIdFromFirebaseUid = (firebaseUid: string): string | null => {
-  return FIREBASE_UID_TO_USER_ID[firebaseUid] || null
+export const getUserIdFromFirebaseUid = (_firebaseUid: string): string | null => {
+  return null
 }
 
 // Get Firebase Auth uid from TEAM_MEMBERS userId (deprecated)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getFirebaseUidFromUserId = (userId: string): string | null => {
-  return USER_ID_TO_FIREBASE_UID[userId] || null
+export const getFirebaseUidFromUserId = (_userId: string): string | null => {
+  return null
 }
 
 // Session type for active sessions - now imported from types
@@ -79,7 +77,7 @@ interface AuthState {
 
 // Sign in to Firebase Auth (deprecated - kept for backward compatibility)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const signInToFirebaseAuth = async (userId: string): Promise<boolean> => {
+const signInToFirebaseAuth = async (_userId: string): Promise<boolean> => {
   return false
 }
 
@@ -97,7 +95,7 @@ const signOutFromFirebaseAuth = async (): Promise<void> => {
 
 // Helper to ensure correct Firebase Auth session (deprecated - kept for backward compatibility)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const ensureFirebaseAuthForUser = async (userId: string): Promise<boolean> => {
+export const ensureFirebaseAuthForUser = async (_userId: string): Promise<boolean> => {
   return false
 }
 
