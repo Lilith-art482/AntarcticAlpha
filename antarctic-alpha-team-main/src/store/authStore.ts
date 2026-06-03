@@ -69,17 +69,17 @@ const USER_EMAIL_MAP: Record<string, string> = {
 
 // Mapping from Firebase Auth uid to TEAM_MEMBERS userId
 const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
-  'FHwKUQvz5tZICvazx37Id2yWSd72': '1', // dexim (Артём) - admin
-  'YPGjIOIF5fPID7KuQNC0untA49E2': '2', // enowk (Адель)
-  'yeH1O6eYHzcYNo82zNC6wltkXYk2': '3', // xenia (Ксения) - admin
+  'diK8LipwVXV6ckh0up9rCPAeanP2': '1', // dexim (Артём) - admin
+  'SNCY1d79MQTB5XNUV52sDKN2Lcg2': '2', // enowk (Адель)
+  '86xBV98mryWrqqpBgM6Cg8iOJT33': '3', // xenia (Ксения) - admin
   'UybkXhhXyIhjmHHYnRC8V1yOQCJ2': '4', // olga (Ольга)
 }
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth uid
 const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
-  '1': 'FHwKUQvz5tZICvazx37Id2yWSd72', // dexim (Артём) - admin
-  '2': 'YPGjIOIF5fPID7KuQNC0untA49E2', // enowk (Адель)
-  '3': 'yeH1O6eYHzcYNo82zNC6wltkXYk2', // xenia (Ксения) - admin
+  '1': 'diK8LipwVXV6ckh0up9rCPAeanP2', // dexim (Артём) - admin
+  '2': 'SNCY1d79MQTB5XNUV52sDKN2Lcg2', // enowk (Адель)
+  '3': '86xBV98mryWrqqpBgM6Cg8iOJT33', // xenia (Ксения) - admin
   '4': 'UybkXhhXyIhjmHHYnRC8V1yOQCJ2', // olga (Ольга)
 }
 
