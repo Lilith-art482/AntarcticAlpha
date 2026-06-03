@@ -6,103 +6,23 @@ import { useAdminStore, isUserLimitedAdmin } from './adminStore'
 import { logger } from '@/utils/logger'
 import { authenticateWithBiometric } from '@/utils/webAuthn'
 
-// Mapping from TEAM_MEMBERS userId to Firebase Auth email (deprecated - keeping for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const USER_EMAIL_MAP: Record<string, string> = {
-  '1': 'dexim@antarctic-alpha.com',
-  '2': 'enowk@antarctic-alpha.com',
-  '3': 'xenia@antarctic-alpha.com',
-  '4': 'olga@antarctic-alpha.com',
-}
-
-// Mapping from Firebase Auth uid to TEAM_MEMBERS userId (deprecated)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
-  'FHwKUQvz5tZICvazx37Id2yWSd72': '1', // dexim (Артём) - admin
-  'YPGjIOIF5fPID7KuQNC0untA49E2': '2', // enowk (Адель)
-  'yeH1O6eYHzcYNo82zNC6wltkXYk2': '3', // xenia (Ксения) - admin
-  'UybkXhhXyIhjmHHYnRC8V1yOQCJ2': '4', // olga (Ольга)
-}
-
-// Mapping from TEAM_MEMBERS userId to Firebase Auth uid (deprecated)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
-  '1': 'FHwKUQvz5tZICvazx37Id2yWSd72', // dexim (Артём) - admin
-  '2': 'YPGjIOIF5fPID7KuQNC0untA49E2', // enowk (Адель)
-  '3': 'yeH1O6eYHzcYNo82zNC6wltkXYk2', // xenia (Ксения) - admin
-  '4': 'UybkXhhXyIhjmHHYnRC8V1yOQCJ2', // olga (Ольга)
-}
-
-// Firebase Auth passwords (deprecated - no longer used)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const FIREBASE_AUTH_PASSWORD = 'AntarcticAlpha2024!' // Same for all users
-
-// Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in (deprecated)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getUserIdByLoginOrPhone = (_input: string): string | null => {
-  return null
-}
-
-// Get TEAM_MEMBERS userId from Firebase Auth uid (deprecated)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getUserIdFromFirebaseUid = (_firebaseUid: string): string | null => {
-  return null
-}
-
-// Get Firebase Auth uid from TEAM_MEMBERS userId (deprecated)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getFirebaseUidFromUserId = (_userId: string): string | null => {
-  return null
-}
-
-// Session type for active sessions - now imported from types
-
+// Session type for active sessions
 interface AuthState {
   user: User | null
   isAuthenticated: boolean
-  lastAuthTime: string | null // ISO timestamp of last successful auth
-  pendingAuthCode: string | null // Code waiting for verification
-  pendingUserId: string | null // User ID waiting for code verification
-  sessions: UserSession[] // Active sessions
-  codeVerified: boolean // Whether code was verified in current session
+  lastAuthTime: string | null
+  pendingAuthCode: string | null
+  pendingUserId: string | null
+  sessions: UserSession[]
+  codeVerified: boolean
   login: (login: string, password: string) => Promise<{ success: boolean; requiresCode?: boolean }>
-    verifyAuthCode: (code: string, password: string) => Promise<boolean>
+  verifyAuthCode: (code: string, password: string) => Promise<boolean>
   logout: () => Promise<void>
   logoutSession: (sessionId: string) => Promise<void>
-  checkSessionExpiry: () => boolean // Returns true if session is expired
+  checkSessionExpiry: () => boolean
   clearPendingAuth: () => void
   setSessions: (sessions: UserSession[]) => void
-  updateUser: (userData: Partial<User>) => void // Update current user data without logout
-}
-
-// Sign in to Firebase Auth (deprecated - kept for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const signInToFirebaseAuth = async (_userId: string): Promise<boolean> => {
-  return false
-}
-
-// Sign in anonymously to Firebase (deprecated - kept for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const signInAnonymouslyToFirebase = async (): Promise<boolean> => {
-  return false
-}
-
-// Sign out from Firebase Auth (deprecated - kept for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const signOutFromFirebaseAuth = async (): Promise<void> => {
-  return
-}
-
-// Helper to ensure correct Firebase Auth session (deprecated - kept for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const ensureFirebaseAuthForUser = async (_userId: string): Promise<boolean> => {
-  return false
-}
-
-// Initialize Firebase Auth (deprecated - kept for backward compatibility)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const initializeFirebaseAuth = async (): Promise<void> => {
-  return
+  updateUser: (userData: Partial<User>) => void
 }
 const getBrowserInfo = () => {
   const ua = navigator.userAgent
@@ -531,9 +451,8 @@ const getBrowserInfo = () => {
   return { browser, device, deviceModel, os }
 }
 
-// Get current session city (placeholder - would need IP geolocation API)
+// Get current session city
 const getSessionCity = async (): Promise<string> => {
-  // In a real app, you'd use an IP geolocation API
   return 'Moscow'
 }
 
