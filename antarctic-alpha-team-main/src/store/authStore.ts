@@ -1,21 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, TEAM_MEMBERS, UserSession } from '@/types'
-import { getAllUsers, getSessions, addSession, deleteSession, updateUser } from '@/services/firestoreService'
+import { getAllUsers, getSessions, addSession, deleteSession } from '@/services/firestoreService'
 import { useAdminStore, isUserLimitedAdmin } from './adminStore'
-import { signInWithEmailAndPassword, signInAnonymously, signOut as firebaseSignOut } from 'firebase/auth'
-import { auth } from '@/firebase/config'
 import { logger } from '@/utils/logger'
 import { authenticateWithBiometric } from '@/utils/webAuthn'
 
-// Sync all TEAM_MEMBERS to Firestore on first load (ONE-TIME ONLY - disabled after setup)
-const syncAllTeamMembersToFirestore = async (): Promise<void> => {
-  // Disabled - users should be managed directly in Firestore now
-  // logger.log('[syncAllTeamMembers] Sync disabled - using Firestore as source of truth')
-  return Promise.resolve()
-}
-
-// Mapping from TEAM_MEMBERS userId to Firebase Auth email
+// Mapping from TEAM_MEMBERS userId to Firebase Auth email (deprecated - keeping for backward compatibility)
 const USER_EMAIL_MAP: Record<string, string> = {
   '1': 'dexim@antarctic-alpha.com',
   '2': 'enowk@antarctic-alpha.com',
@@ -23,7 +14,7 @@ const USER_EMAIL_MAP: Record<string, string> = {
   '4': 'olga@antarctic-alpha.com',
 }
 
-// Mapping from Firebase Auth uid to TEAM_MEMBERS userId
+// Mapping from Firebase Auth uid to TEAM_MEMBERS userId (deprecated)
 const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
   'FHwKUQvz5tZICvazx37Id2yWSd72': '1', // dexim (Артём) - admin
   'YPGjIOIF5fPID7KuQNC0untA49E2': '2', // enowk (Адель)
@@ -31,7 +22,7 @@ const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
   'UybkXhhXyIhjmHHYnRC8V1yOQCJ2': '4', // olga (Ольга)
 }
 
-// Mapping from TEAM_MEMBERS userId to Firebase Auth uid
+// Mapping from TEAM_MEMBERS userId to Firebase Auth uid (deprecated)
 const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
   '1': 'FHwKUQvz5tZICvazx37Id2yWSd72', // dexim (Артём) - admin
   '2': 'YPGjIOIF5fPID7KuQNC0untA49E2', // enowk (Адель)
@@ -39,10 +30,12 @@ const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
   '4': 'UybkXhhXyIhjmHHYnRC8V1yOQCJ2', // olga (Ольга)
 }
 
-// Firebase Auth passwords (can be simple, they're just for Firestore rules)
+// Firebase Auth passwords (deprecated - no longer used)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FIREBASE_AUTH_PASSWORD = 'AntarcticAlpha2024!' // Same for all users
 
-// Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in
+// Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in (deprecated)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const getUserIdByLoginOrPhone = (input: string): string | null => {
   const normalizedInput = input.replace(/\D/g, '')
   for (const tm of TEAM_MEMBERS) {
@@ -52,12 +45,14 @@ const getUserIdByLoginOrPhone = (input: string): string | null => {
   return null
 }
 
-// Get TEAM_MEMBERS userId from Firebase Auth uid
+// Get TEAM_MEMBERS userId from Firebase Auth uid (deprecated)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const getUserIdFromFirebaseUid = (firebaseUid: string): string | null => {
   return FIREBASE_UID_TO_USER_ID[firebaseUid] || null
 }
 
-// Get Firebase Auth uid from TEAM_MEMBERS userId
+// Get Firebase Auth uid from TEAM_MEMBERS userId (deprecated)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const getFirebaseUidFromUserId = (userId: string): string | null => {
   return USER_ID_TO_FIREBASE_UID[userId] || null
 }
@@ -82,120 +77,34 @@ interface AuthState {
   updateUser: (userData: Partial<User>) => void // Update current user data without logout
 }
 
-// Helper to sign in to Firebase Auth (for Firestore security rules)
+// Sign in to Firebase Auth (deprecated - kept for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const signInToFirebaseAuth = async (userId: string): Promise<boolean> => {
-  const email = USER_EMAIL_MAP[userId]
-  if (!email) {
-    logger.warn('No Firebase Auth email mapping for user:', userId)
-    return false
-  }
-  
-  try {
-    await signInWithEmailAndPassword(auth, email, FIREBASE_AUTH_PASSWORD)
-    logger.log('✅ Signed in to Firebase Auth as:', email)
-    return true
-  } catch (error: any) {
-    if (error.code === 'auth/user-not-found') {
-      logger.warn('Firebase Auth user not found:', email)
-    } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-      logger.warn('Firebase Auth invalid credential for:', email, '- check that the password in Firebase Console matches FIREBASE_AUTH_PASSWORD')
-    } else {
-      logger.error('Firebase Auth sign-in error:', error.code, error.message)
-    }
-    return false
-  }
+  return false
 }
 
-// Fallback: sign in anonymously to satisfy Firestore rules when email auth fails
+// Sign in anonymously to Firebase (deprecated - kept for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const signInAnonymouslyToFirebase = async (): Promise<boolean> => {
-  try {
-    await signInAnonymously(auth)
-    logger.log('✅ Signed in to Firebase Auth anonymously')
-    return true
-  } catch (error: any) {
-    logger.error('Firebase Auth anonymous sign-in error:', error.code, error.message)
-    return false
-  }
+  return false
 }
 
-// Helper to sign out from Firebase Auth
+// Sign out from Firebase Auth (deprecated - kept for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const signOutFromFirebaseAuth = async (): Promise<void> => {
-  try {
-    await firebaseSignOut(auth)
-    logger.log('✅ Signed out from Firebase Auth')
-  } catch (error) {
-    logger.error('Firebase Auth sign-out error:', error)
-  }
+  return
 }
 
-// Helper to ensure correct Firebase Auth session for operations requiring specific user permissions
-// используется перед операциями с userSecurity где нужны owner rules
+// Helper to ensure correct Firebase Auth session (deprecated - kept for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const ensureFirebaseAuthForUser = async (userId: string): Promise<boolean> => {
-  // Check if already signed in as the correct user
-  const currentUid = auth.currentUser?.uid
-  const targetUid = USER_ID_TO_FIREBASE_UID[userId]
-  
-  if (currentUid === targetUid) {
-    logger.log('[ensureFirebaseAuth] Already signed in as correct user:', userId)
-    return true
-  }
-  
-  // Sign in to Firebase Auth for this user
-  const success = await signInToFirebaseAuth(userId)
-  if (success) {
-    logger.log('✅ Ensured Firebase Auth session for user:', userId)
-  } else {
-    logger.error('Failed to ensure Firebase Auth session for user:', userId)
-  }
-  return success
+  return false
 }
 
-// Initialize Firebase Auth on app load (restore session)
+// Initialize Firebase Auth (deprecated - kept for backward compatibility)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const initializeFirebaseAuth = async (): Promise<void> => {
-  // Check if user is already logged in from persisted state
-  const stored = localStorage.getItem('ava-auth')
-  if (!stored) return
-  
-  try {
-    const parsed = JSON.parse(stored)
-    const userId = parsed?.state?.user?.id
-    const isAuthenticated = parsed?.state?.isAuthenticated
-    
-    if (userId && isAuthenticated) {
-      const restored = await signInToFirebaseAuth(userId)
-      if (!restored) {
-        logger.warn('[init] Failed to restore Firebase Auth session for user:', userId, '- trying anonymous fallback')
-        await signInAnonymouslyToFirebase()
-      }
-      logger.log('✅ Firebase Auth session restored for user:', userId)
-      
-      // Also load fresh user data from Firestore to get selectedSphere
-      try {
-        const firestoreUsers = await getAllUsers()
-        const firestoreUser = firestoreUsers.find(u => u.id === userId)
-        
-        if (firestoreUser) {
-          logger.log('✅ Loaded fresh user data from Firestore:', userId)
-          // Update the store with fresh data
-          const authStore = useAuthStore.getState()
-          if (authStore.user) {
-            authStore.updateUser({
-              selectedSphere: firestoreUser.selectedSphere,
-              sphereSelectedAt: firestoreUser.sphereSelectedAt,
-              name: firestoreUser.name,
-              avatar: firestoreUser.avatar,
-              nickname: firestoreUser.nickname,
-              // Preserve other fields from current state
-            })
-          }
-        }
-      } catch (error) {
-        logger.error('Error loading fresh user data from Firestore:', error)
-      }
-    }
-  } catch (error) {
-    logger.error('Error restoring Firebase Auth session:', error)
-  }
+  return
 }
 const getBrowserInfo = () => {
   const ua = navigator.userAgent
@@ -1021,13 +930,6 @@ export const loginWithBiometric = async (): Promise<{ success: boolean; error?: 
   logger.log('[loginWithBiometric] Biometric auth successful for user:', userId)
 
   try {
-    // Sign in to Firebase Auth
-    const authOk = await signInToFirebaseAuth(userId)
-    if (!authOk) {
-      await signInAnonymouslyToFirebase()
-    }
-    logger.log('[loginWithBiometric] ✅ Firebase Auth signed in')
-
     // Get user from Firestore
     const firestoreUsers = await getAllUsers()
     const firestoreUser = firestoreUsers.find(u => u.id === userId)
