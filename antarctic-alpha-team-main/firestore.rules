@@ -1,0 +1,283 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ================================
+    // Helper functions
+    // ================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return request.auth.uid in [
+        'FHwKUQvz5tZICvazx37Id2yWSd72',  // Артём (userId 1)
+        'yeH1O6eYHzcYNo82zNC6wltkXYk2'   // Ксения (userId 3)
+      ];
+    }
+
+    // ================================
+    // User Security (PIN codes) - SENSITIVE
+    // Разрешаем любому аутентифицированному пользователю,
+    // т.к. используется кастомная авторизация с fallback на anonymous auth.
+    // Логика доступа к чужим данным контролируется на уровне приложения.
+    // ================================
+    match /userSecurity/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // User Sessions
+    // ================================
+    match /sessions/{sessionId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Personal Data Verifications
+    // ================================
+    match /personalDataVerifications/{docId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Users collection
+    // ================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ================================
+    // User Wallets (DEX wallets)
+    // ================================
+    match /userWallets/{walletId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /wallets/{walletId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Token Trades (Wallet Analytics)
+    // ================================
+    match /tokenTrades/{tradeId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Wallet Balance History
+    // ================================
+    match /walletBalanceHistory/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Community Fund - Compensation Requests
+    // ================================
+    match /compensationRequests/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Community Fund - Diversification Entries
+    // ================================
+    match /diversificationEntries/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Contact DM
+    // ================================
+    match /dmContactRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if true;
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Appeals
+    // ================================
+    match /appeals/{appealId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Payments
+    // ================================
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Team Fund Requests
+    // ================================
+    match /teamFundRequests/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Pool Contributions
+    // ================================
+    match /poolContributions/{contributionId} {
+      allow read: if true;
+      // Разрешаем создание любому аутентифицированному пользователю
+      // (автоматическое создание при одобрении заработка с poolAmount)
+      // Удаление и ручное редактирование - для всех аутентифицированных пользователей
+      // (бизнес-логика проверки админа контролируется на уровне приложения)
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Approval Requests
+    // ================================
+    match /approvalRequests/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Admin-only collections (контроль на уровне приложения)
+    // ================================
+    match /accessBlocks/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /restrictions/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /userConflicts/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ================================
+    // Points Transactions
+    // ================================
+    match /pointsTransactions/{transactionId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Team data (all authenticated users)
+    // ================================
+    match /workSlots/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /dayStatuses/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /earnings/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /ratings/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /messages/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /referrals/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /calls/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /tasks/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /notes/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /userNicknames/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /aiAlerts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /triggerAlerts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /fasolTriggerAlerts/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /lessons/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /trades/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /tradeSetups/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /events/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /initiatives/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /analytics/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Feedback
+    // ================================
+    match /unfilteredFeedback/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    match /pdConsents/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Challenges
+    // ================================
+    match /challenges/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Applications - HR Hub
+    // ================================
+    match /applications/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+
+    // ================================
+    // Caller Follows
+    // ================================
+    match /callerFollows/{document} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ================================
+    // Default: Deny all other access
+    // ================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
