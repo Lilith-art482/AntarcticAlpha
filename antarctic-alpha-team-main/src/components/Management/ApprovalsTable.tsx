@@ -1,0 +1,544 @@
+import { useEffect, useState } from 'react'
+import { CheckCircle2, Clock, ThumbsDown, CheckSquare, Square, Archive } from 'lucide-react'
+import { getApprovalRequests, approveApprovalRequest, rejectApprovalRequest } from '@/services/firestoreService'
+import { ApprovalRequest, DayStatus, WorkSlot, SLOT_CATEGORY_META, SlotCategory, Earnings, EARNINGS_CATEGORY_META } from '@/types'
+import { formatDate } from '@/utils/dateUtils'
+import { clearNicknameCache, getUserNicknameAsync } from '@/utils/userUtils'
+import { UserNickname } from '@/components/UserNickname'
+import { useAuthStore } from '@/store/authStore'
+import { useAdminStore } from '@/store/adminStore'
+
+const actionLabelMap: Record<ApprovalRequest['action'], string> = {
+  create: 'Создание',
+  update: 'Изменение',
+  delete: 'Удаление',
+}
+
+const entityLabelMap: Record<ApprovalRequest['entity'], string> = {
+  slot: 'Слот',
+  status: 'Статус',
+  earning: 'Заработок',
+  referral: 'Реферал',
+  login: 'Ник',
+  points_exchange: 'Обмен баллов',
+}
+
+const statusToneMap: Record<ApprovalRequest['status'], string> = {
+  pending: 'bg-amber-50 text-amber-900 border border-amber-200 shadow-inner dark:bg-amber-900/25 dark:text-amber-50 dark:border-amber-700',
+  approved: 'bg-emerald-50 text-emerald-900 border border-emerald-200 shadow-inner dark:bg-emerald-900/25 dark:text-emerald-50 dark:border-emerald-700',
+  rejected: 'bg-rose-50 text-rose-900 border border-rose-200 shadow-inner dark:bg-rose-900/25 dark:text-rose-50 dark:border-rose-700',
+}
+
+const statusBadgeMap: Record<ApprovalRequest['status'], JSX.Element> = {
+  pending: (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+      <Clock className="w-3 h-3" /> На согласовании
+    </span>
+  ),
+  approved: (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100">
+      <CheckCircle2 className="w-3 h-3" /> Принято
+    </span>
+  ),
+  rejected: (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-100">
+      <ThumbsDown className="w-3 h-3" /> Отклонено
+    </span>
+  ),
+}
+
+const safeFormatDate = (value?: string | Date, includeTime = false) => {
+  if (!value) return '—'
+  try {
+    return formatDate(value, includeTime ? 'dd.MM.yyyy HH:mm' : 'dd.MM.yyyy')
+  } catch {
+    return '—'
+  }
+}
+
+const formatSlotPreview = (slot?: WorkSlot | null) => {
+  if (!slot) return '—'
+  const times = slot.slots
+    ?.map((s) => `${s.start}-${s.end}${s.endDate ? ` (до ${safeFormatDate(s.endDate)})` : ''}`)
+    ?.join(', ')
+  const categoryLabel = slot.category ? ` [${SLOT_CATEGORY_META[slot.category as SlotCategory]?.label || slot.category}]` : ''
+  return `${safeFormatDate(slot.date)}${times ? ` · ${times}` : ''}${categoryLabel}`
+}
+
+const formatStatusPreview = (status?: DayStatus | null) => {
+  if (!status) return '—'
+  const label =
+    status.type === 'dayoff' ? 'Выходной' : status.type === 'sick' ? 'Больничный' : 'Отпуск'
+  const range = status.endDate ? ` (${safeFormatDate(status.endDate)})` : ''
+  return `${safeFormatDate(status.date)} · ${label}${range}`
+}
+
+export const ApprovalsTable = () => {
+  const { user } = useAuthStore()
+  const { isAdmin } = useAdminStore()
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([])
+  const [archivedApprovals, setArchivedApprovals] = useState<ApprovalRequest[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'pending' | 'archive'>('pending')
+
+  const loadApprovals = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await getApprovalRequests()
+
+      // For admin, limit to 60 hours (to avoid showing too old requests)
+      let filteredData = data
+      if (isAdmin) {
+        const sixtyHoursAgo = new Date()
+        sixtyHoursAgo.setHours(sixtyHoursAgo.getHours() - 60)
+        filteredData = data.filter(approval =>
+          new Date(approval.createdAt) >= sixtyHoursAgo
+        )
+      }
+
+      // Archive: processed requests from the last 30 days
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const archivedData = data.filter(approval =>
+        approval.status !== 'pending' &&
+        approval.processedAt &&
+        new Date(approval.processedAt) >= thirtyDaysAgo
+      )
+
+      setApprovals(filteredData)
+      setArchivedApprovals(archivedData)
+    } catch (error) {
+      console.error('Не удалось загрузить заявки на согласование', error)
+      setError('Не удалось загрузить заявки')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadApprovals()
+  }, [])
+
+  const handleApprove = async (approvalId: string) => {
+    if (submittingId) return
+    setSubmittingId(approvalId)
+    setError(null)
+    try {
+      const approval = approvals.find(a => a.id === approvalId)
+      await approveApprovalRequest(approvalId, user?.id || 'admin')
+      // Clear nickname cache and reload new value if this was a nickname change request
+      if (approval?.entity === 'login') {
+        clearNicknameCache(approval.targetUserId)
+        // Force reload new nickname into cache
+        await getUserNicknameAsync(approval.targetUserId)
+        // Dispatch custom event to notify all components about nickname update
+        window.dispatchEvent(new CustomEvent('nicknameUpdated', { detail: { userId: approval.targetUserId } }))
+      }
+      await loadApprovals()
+      setSelectedIds((prev) => prev.filter((id) => id !== approvalId))
+    } catch (e: any) {
+      console.error('Ошибка при подтверждении', e)
+      setError(`Не удалось подтвердить заявку: ${e?.message || e}`)
+      await loadApprovals()
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
+  const handleReject = async (approvalId: string) => {
+    if (submittingId) return
+    const adminComment = prompt('Комментарий для отклонения заявки', 'Уточните детали') || 'Отклонено без комментария'
+    setSubmittingId(approvalId)
+    setError(null)
+    try {
+      await rejectApprovalRequest(approvalId, user?.id || 'admin', adminComment)
+      await loadApprovals()
+    } catch (e) {
+      console.error('Ошибка при отклонении', e)
+      setError('Не удалось отклонить заявку')
+    } finally {
+      setSubmittingId(null)
+    }
+  }
+
+  const handleApproveSelected = async () => {
+    if (bulkSubmitting || submittingId || selectedIds.length === 0) return
+    setBulkSubmitting(true)
+    setError(null)
+    try {
+      for (const id of selectedIds) {
+        const approval = approvals.find(a => a.id === id)
+        await approveApprovalRequest(id, user?.id || 'admin')
+        // Clear nickname cache and reload new value if this was a nickname change request
+        if (approval?.entity === 'login') {
+          clearNicknameCache(approval.targetUserId)
+          // Force reload new nickname into cache
+          await getUserNicknameAsync(approval.targetUserId)
+          // Dispatch custom event to notify all components about nickname update
+          window.dispatchEvent(new CustomEvent('nicknameUpdated', { detail: { userId: approval.targetUserId } }))
+        }
+      }
+      await loadApprovals()
+      setSelectedIds([])
+    } catch (e: any) {
+      console.error('Ошибка при подтверждении выбранных', e)
+      setError(`Не удалось подтвердить выбранные заявки: ${e?.message || e}`)
+      await loadApprovals()
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
+
+  const handleRejectSelected = async () => {
+    if (bulkSubmitting || submittingId || selectedIds.length === 0) return
+
+    const adminComment = prompt('Комментарий для отклонения выбранных заявок', 'Отклонено без комментария') || 'Отклонено без комментария'
+    if (adminComment === null) return // User cancelled
+
+    setBulkSubmitting(true)
+    setError(null)
+    try {
+      for (const id of selectedIds) {
+        await rejectApprovalRequest(id, user?.id || 'admin', adminComment)
+      }
+      await loadApprovals()
+      setSelectedIds([])
+    } catch (e: any) {
+      console.error('Ошибка при отклонении выбранных', e)
+      setError(`Не удалось отклонить выбранные заявки: ${e?.message || e}`)
+      await loadApprovals()
+    } finally {
+      setBulkSubmitting(false)
+    }
+  }
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const toggleSelectAllPending = () => {
+    const pendingIds = approvals.filter((a) => a.status === 'pending').map((a) => a.id)
+    const allSelected = pendingIds.every((id) => selectedIds.includes(id))
+    setSelectedIds(allSelected ? [] : pendingIds)
+  }
+
+  const renderChangePreview = (approval: ApprovalRequest) => {
+    // Check entity type first to avoid incorrect type casting
+    // IMPORTANT: Check 'login' entity BEFORE 'status' to prevent incorrect type inference
+    if (approval.entity === 'login') {
+      const beforeData = approval.before as any
+      const afterData = approval.after as any
+      // Read nickname field directly from data object
+      const beforeValue = beforeData?.nickname || '—'
+      const afterValue = afterData?.nickname || '—'
+      return `${beforeValue} → ${afterValue}`
+    }
+    if (approval.entity === 'slot') {
+      const beforeSlot = approval.before as WorkSlot | null
+      const afterSlot = approval.after as WorkSlot | null
+      return `${formatSlotPreview(beforeSlot)} → ${formatSlotPreview(afterSlot)}`
+    }
+    if (approval.entity === 'status') {
+      const beforeStatus = approval.before as DayStatus | null
+      const afterStatus = approval.after as DayStatus | null
+      return `${formatStatusPreview(beforeStatus)} → ${formatStatusPreview(afterStatus)}`
+    }
+    if (approval.entity === 'earning') {
+      const afterEarning = approval.after as Earnings | null
+      const beforeEarning = approval.before as Earnings | null
+      
+      if (approval.action === 'create' && afterEarning) {
+        const category = EARNINGS_CATEGORY_META[afterEarning.category as keyof typeof EARNINGS_CATEGORY_META]
+        return (
+          <div className="space-y-1">
+            <div className="font-semibold text-[#4E6E49] dark:text-emerald-400">
+              {category?.label || afterEarning.category}: {afterEarning.amount.toLocaleString()} ₽
+            </div>
+            {afterEarning.transactionHash && (
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Транзакция:</span>{' '}
+                <a
+                  href={afterEarning.transactionHash.startsWith('http') ? afterEarning.transactionHash : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-[#4E6E49] dark:hover:text-emerald-400 break-all"
+                >
+                  {afterEarning.transactionHash.length > 30 
+                    ? afterEarning.transactionHash.substring(0, 30) + '...' 
+                    : afterEarning.transactionHash}
+                </a>
+              </div>
+            )}
+            {afterEarning.receivedWallet && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
+                <span className="font-medium">Кошелёк:</span> {afterEarning.receivedWallet}
+              </div>
+            )}
+          </div>
+        )
+      }
+      
+      if (approval.action === 'update' && afterEarning && beforeEarning) {
+        const category = EARNINGS_CATEGORY_META[afterEarning.category as keyof typeof EARNINGS_CATEGORY_META]
+        return (
+          <div className="space-y-1">
+            <div className="font-semibold text-[#4E6E49] dark:text-emerald-400">
+              {category?.label || afterEarning.category}: {beforeEarning.amount.toLocaleString()} ₽ → {afterEarning.amount.toLocaleString()} ₽
+            </div>
+            {afterEarning.transactionHash && (
+              <div className="text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-medium">Транзакция:</span>{' '}
+                <a
+                  href={afterEarning.transactionHash.startsWith('http') ? afterEarning.transactionHash : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-[#4E6E49] dark:hover:text-emerald-400 break-all"
+                >
+                  {afterEarning.transactionHash.length > 30 
+                    ? afterEarning.transactionHash.substring(0, 30) + '...' 
+                    : afterEarning.transactionHash}
+                </a>
+              </div>
+            )}
+            {afterEarning.receivedWallet && (
+              <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
+                <span className="font-medium">Кошелёк:</span> {afterEarning.receivedWallet}
+              </div>
+            )}
+          </div>
+        )
+      }
+      
+      if (approval.action === 'delete' && beforeEarning) {
+        const category = EARNINGS_CATEGORY_META[beforeEarning.category as keyof typeof EARNINGS_CATEGORY_META]
+        return (
+          <div className="text-rose-600 dark:text-rose-400">
+            Удаление: {category?.label || beforeEarning.category}: {beforeEarning.amount.toLocaleString()} ₽
+          </div>
+        )
+      }
+    }
+    // For other entities (referral, points_exchange), show basic info
+    return approval.after ? 'Изменение' : approval.before ? 'Удаление' : 'Создание'
+  }
+
+  const renderApprovalsTable = (approvalList: ApprovalRequest[], showActions = true) => (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-sm">
+        <thead className="bg-gray-50 dark:bg-gray-900/40">
+          <tr>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Статус</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Тип</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Действие</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Кто</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Изменение</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Время</th>
+            <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Комментарий</th>
+            {showActions && <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">Действия</th>}
+            {showActions && (
+              <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-200">
+                <button
+                  onClick={toggleSelectAllPending}
+                  className="inline-flex items-center gap-1 text-sm text-[#4E6E49] hover:text-emerald-700"
+                  title="Выбрать все на согласовании"
+                >
+                  {approvals.some((a) => a.status === 'pending') ? (
+                    <>{approvals.filter((a) => a.status === 'pending').every((a) => selectedIds.includes(a.id)) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />} Все</>
+                  ) : (
+                    <Square className="w-4 h-4 opacity-50" />
+                  )}
+                </button>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+          {approvalList.map((approval) => (
+            <tr key={approval.id} className={`bg-white dark:bg-[#0f1624] ${statusToneMap[approval.status]}`}>
+              <td className="px-4 py-3 align-top">{statusBadgeMap[approval.status]}</td>
+              <td className="px-4 py-3 align-top font-semibold">{entityLabelMap[approval.entity]}</td>
+              <td className="px-4 py-3 align-top">{actionLabelMap[approval.action]}</td>
+              <td className="px-4 py-3 align-top">
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold"><UserNickname userId={approval.targetUserId} /></span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Автор: <UserNickname userId={approval.authorId} /></span>
+                </div>
+              </td>
+              <td className="px-4 py-3 align-top">
+                <div className="text-xs sm:text-sm font-medium">{renderChangePreview(approval)}</div>
+                {approval.after && approval.entity === 'slot' && (approval.after as WorkSlot).comment && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Комментарий слота: {(approval.after as WorkSlot).comment}</div>
+                )}
+                {approval.after && approval.entity === 'status' && (approval.after as DayStatus).comment && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Комментарий статуса: {(approval.after as DayStatus).comment}</div>
+                )}
+              </td>
+              <td className="px-4 py-3 align-top">
+                <div className="flex flex-col gap-1 text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">
+                    Создано: <span className="text-gray-700 dark:text-gray-200">{safeFormatDate(approval.createdAt, true)}</span>
+                  </span>
+                  {approval.processedAt && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Обработано: <span className="text-gray-700 dark:text-gray-200">{safeFormatDate(approval.processedAt, true)}</span>
+                    </span>
+                  )}
+                  {approval.reviewedBy && approval.status !== 'pending' && (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Админ: <UserNickname userId={approval.reviewedBy} />
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 align-top">
+                <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                  {approval.comment || '—'}
+                </div>
+                {approval.adminComment && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">Ответ админа: {approval.adminComment}</div>
+                )}
+              </td>
+              {showActions && (
+                <td className="px-4 py-3 align-top">
+                  {approval.status === 'pending' ? (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleApprove(approval.id)}
+                        disabled={!!submittingId}
+                        className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs sm:text-sm font-semibold"
+                      >
+                        {submittingId === approval.id ? 'Применяем...' : 'Подтвердить'}
+                      </button>
+                      <button
+                        onClick={() => handleReject(approval.id)}
+                        disabled={!!submittingId}
+                        className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white text-xs sm:text-sm font-semibold"
+                      >
+                        {submittingId === approval.id ? 'Отклоняем...' : 'Отклонить'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Выполнено</div>
+                  )}
+                </td>
+              )}
+              {showActions && (
+                <td className="px-4 py-3 align-top">
+                  {approval.status === 'pending' ? (
+                    <button
+                      onClick={() => toggleSelection(approval.id)}
+                      className="inline-flex items-center gap-1 text-sm text-[#4E6E49] hover:text-emerald-700"
+                    >
+                      {selectedIds.includes(approval.id) ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+                      <span className="sr-only">Выбрать заявку</span>
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+              )}
+            </tr>
+          ))}
+          {approvalList.length === 0 && (
+            <tr>
+              <td colSpan={showActions ? 8 : 7} className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                {activeTab === 'pending' ? 'Нет заявок на согласование' : 'Нет заявок в архиве'}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center text-sm text-gray-600 dark:text-gray-300">
+        Загружаем заявки...
+      </div>
+    )
+  }
+
+  const displayApprovals = activeTab === 'pending' ? approvals : archivedApprovals
+
+  return (
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
+      <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-lg font-semibold">Согласования</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Заявки на изменение слотов и статусов</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Tabs */}
+          <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1">
+            <button
+              onClick={() => setActiveTab('pending')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'pending'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Ожидают ({approvals.filter(a => a.status === 'pending').length})
+            </button>
+            <button
+              onClick={() => setActiveTab('archive')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === 'archive'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              Архив
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk actions - only show in pending tab */}
+      {activeTab === 'pending' && (
+        <div className="px-4 sm:px-5 py-3 bg-gray-50 dark:bg-gray-900/20 border-b border-gray-200 dark:border-gray-800 flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Выбрано: {selectedIds.length}</span>
+          <button
+            onClick={handleApproveSelected}
+            disabled={bulkSubmitting || submittingId !== null || selectedIds.length === 0}
+            className="text-sm px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold"
+          >
+            {bulkSubmitting ? 'Применяем...' : `Принять (${selectedIds.length})`}
+          </button>
+          <button
+            onClick={handleRejectSelected}
+            disabled={bulkSubmitting || submittingId !== null || selectedIds.length === 0}
+            className="text-sm px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white font-semibold"
+          >
+            {bulkSubmitting ? 'Отклоняем...' : `Отклонить (${selectedIds.length})`}
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="px-4 py-3 bg-rose-100 text-rose-900 dark:bg-rose-900/30 dark:text-rose-100 text-sm">
+          {error}
+        </div>
+      )}
+
+      {renderApprovalsTable(displayApprovals, activeTab === 'pending')}
+
+      {/* Refresh button */}
+      <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 flex justify-end">
+        <button
+          onClick={loadApprovals}
+          className="text-sm px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+        >
+          Обновить
+        </button>
+      </div>
+    </div>
+  )
+}

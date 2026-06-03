@@ -1,0 +1,792 @@
+import { useState, useEffect } from 'react'
+import { parseISO } from 'date-fns'
+import { useThemeStore } from '@/store/themeStore'
+import { useAuthStore } from '@/store/authStore'
+import { useAdminStore } from '@/store/adminStore'
+import { getWorkSlots, getDayStatuses, addApprovalRequest, deleteWorkSlot, updateDayStatus, addDayStatus, deleteDayStatus } from '@/services/firestoreService'
+import { formatDate, getWeekDays, isSameDate, getMoscowTime } from '@/utils/dateUtils'
+import { getUserNicknameSync } from '@/utils/userUtils'
+import { TEAM_MEMBERS, WorkSlot, DayStatus, SLOT_CATEGORY_META, SlotCategory, DayStatusType, User as UserType } from '@/types' // Добавляем TEAM_MEMBERS
+import { Edit, Trash2, CheckCircle2, Calendar as CalendarIcon, ChevronDown, ChevronUp, Info, ChevronLeft, ChevronRight, RotateCcw, ClipboardList } from 'lucide-react'
+import { startOfWeek } from 'date-fns'
+import { useUsers } from '@/hooks/useUsers'
+
+type SlotFilter = 'all' | 'upcoming' | 'completed'
+
+interface ManagementWeekViewProps {
+  selectedUserId: string | null
+  slotFilter: SlotFilter
+  onEditSlot: (slot: WorkSlot) => void
+  onEditStatus: (status: DayStatus) => void
+  refreshKey: number
+  initialWeekStart?: string | null
+  onDateChange?: (date: string | null, weekStart: string | null) => void
+}
+
+export const ManagementWeekView = ({ selectedUserId, slotFilter, onEditSlot, onEditStatus, refreshKey, initialWeekStart, onDateChange }: ManagementWeekViewProps) => {
+  const { theme } = useThemeStore()
+  const { user } = useAuthStore()
+  const { isAdmin } = useAdminStore()
+  const { users: allMembers } = useUsers()
+  // Типы статусов, которые может удалять только админ
+  const adminOnlyTypes = ['truancy', 'absence', 'internship']
+  const [slots, setSlots] = useState<WorkSlot[]>([])
+  const [statuses, setStatuses] = useState<DayStatus[]>([])
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    // Initialize from persisted date or current date
+    if (initialWeekStart) {
+      return new Date(initialWeekStart)
+    }
+    return new Date()
+  })
+  const [loading, setLoading] = useState(true)
+  const [breaksExpanded, setBreaksExpanded] = useState<Record<string, boolean>>({})
+
+  const legacyIdMap: Record<string, string> = {
+    artyom: '1',
+    adel: '2',
+    kseniya: '3',
+    olga: '4',
+    anastasia: '5',
+  }
+
+  const resolveUser = (userId: string) => {
+    const memberFromAllMembers = allMembers.find((u: UserType) => u.id === userId) // Использование allMembers
+    const memberFromTeamMembers = TEAM_MEMBERS.find((u: UserType) => u.id === userId) || TEAM_MEMBERS.find((u: UserType) => legacyIdMap[userId] === u.id)
+
+    const member = memberFromAllMembers || memberFromTeamMembers
+    return {
+      member,
+      displayName: getUserNicknameSync(member?.id || userId),
+      avatar: member?.avatar,
+    }
+  }
+
+  const weekDays = getWeekDays(selectedWeek)
+  const today = new Date()
+
+  useEffect(() => {
+    if (initialWeekStart) {
+      setSelectedWeek(new Date(initialWeekStart))
+    }
+  }, [initialWeekStart])
+
+  useEffect(() => {
+    loadData()
+  }, [selectedUserId, selectedWeek, refreshKey])
+
+  // Reload when window gets focus (user returns to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadData(true) // Silent reload, don't show loader
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
+  const loadData = async (isSilent = false) => {
+    if (!isSilent) setLoading(true)
+    try {
+      // Format dates to ensure correct timezone handling
+      const weekStartDate = new Date(weekDays[0])
+      weekStartDate.setHours(0, 0, 0, 0)
+      const weekEndDate = new Date(weekDays[6])
+      weekEndDate.setHours(23, 59, 59, 999)
+
+      const weekStart = formatDate(weekStartDate, 'yyyy-MM-dd')
+      const weekEnd = formatDate(weekEndDate, 'yyyy-MM-dd')
+
+      // Load all slots, statuses and approval requests for the week, not filtered by user
+      const [allSlots, allStatuses] = await Promise.all([
+        getWorkSlots(),
+        getDayStatuses()
+      ])
+
+      // Filter by week range
+      const weekSlots = allSlots.filter((s: WorkSlot) => s.date >= weekStart && s.date <= weekEnd)
+      // For statuses, check if any day in the status range overlaps with the week
+      const weekStatuses = allStatuses.filter((s: DayStatus) => {
+        const statusStart = s.date
+        const statusEnd = s.endDate || s.date
+        // Status overlaps with week if statusStart <= weekEnd AND statusEnd >= weekStart
+        return statusStart <= weekEnd && statusEnd >= weekStart
+      })
+
+      // If user filter is selected, filter by user
+      const filteredSlots = selectedUserId
+        ? weekSlots.filter((s: WorkSlot) => s.userId === selectedUserId)
+        : weekSlots
+      const filteredStatuses = selectedUserId
+        ? weekStatuses.filter((s: DayStatus) => s.userId === selectedUserId)
+        : weekStatuses
+
+      console.log('Loaded slots (week view):', {
+        weekStart,
+        weekEnd,
+        allSlotsCount: allSlots.length,
+        weekSlotsCount: weekSlots.length,
+        filteredSlotsCount: filteredSlots.length,
+        selectedUserId
+      })
+
+      setSlots(filteredSlots)
+      setStatuses(filteredStatuses)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      if (!isSilent) setLoading(false)
+    }
+  }
+
+  const handleDeleteSlot = async (slot: WorkSlot) => {
+    if (!isAdmin && user?.id !== slot.userId) {
+      alert('Только администратор может удалять чужие слоты')
+      return
+    }
+
+    if (isAdmin) {
+      if (confirm('Удалить слот?')) {
+        await deleteWorkSlot(slot.id)
+        // Small delay to allow Firestore to propagate changes
+        await new Promise(resolve => setTimeout(resolve, 100))
+        await loadData()
+      }
+      return
+    }
+
+    if (confirm('Отправить на согласование удаление слота?')) {
+      await addApprovalRequest({
+        entity: 'slot',
+        action: 'delete',
+        authorId: user?.id || slot.userId,
+        targetUserId: slot.userId,
+        before: slot,
+        after: null,
+        comment: slot.comment,
+      })
+      await loadData()
+    }
+  }
+
+  const handleDeleteStatus = async (status: DayStatus, dateStr?: string) => {
+    // Статусы truancy, absence и internship могут удалять только админы
+    if (adminOnlyTypes.includes(status.type)) {
+      if (!isAdmin) {
+        alert('Только администратор может удалять этот тип статуса')
+        return
+      }
+    } else if (!isAdmin && user?.id !== status.userId) {
+      alert('Только администратор может удалять чужие статусы')
+      return
+    }
+
+    // Если статус имеет endDate и удаляется не весь диапазон, нужно обновить диапазон
+    if (status.endDate && dateStr) {
+      const statusStart = status.date
+      const statusEnd = status.endDate
+
+      // Если удаляется первый день диапазона, обновляем дату начала
+      if (dateStr === statusStart) {
+        if (isAdmin ? confirm('Удалить первый день диапазона?') : confirm('Отправить на согласование удаление первого дня диапазона?')) {
+          const newStart = new Date(parseISO(statusStart))
+          newStart.setDate(newStart.getDate() + 1)
+          const newStartStr = formatDate(newStart, 'yyyy-MM-dd')
+
+          if (isAdmin) {
+            await updateDayStatus(status.id, { ...status, date: newStartStr })
+          } else {
+            await addApprovalRequest({
+              entity: 'status',
+              action: 'update',
+              authorId: user?.id || status.userId,
+              targetUserId: status.userId,
+              before: status,
+              after: {
+                ...status,
+                date: newStartStr
+              },
+              comment: status.comment,
+            })
+          }
+          loadData()
+        }
+        return
+      }
+
+      // Если удаляется последний день диапазона, обновляем дату окончания
+      if (dateStr === statusEnd) {
+        if (isAdmin ? confirm('Удалить последний день диапазона?') : confirm('Отправить на согласование удаление последнего дня диапазона?')) {
+          const newEnd = new Date(parseISO(statusEnd))
+          newEnd.setDate(newEnd.getDate() - 1)
+          const newEndStr = formatDate(newEnd, 'yyyy-MM-dd')
+
+          if (isAdmin) {
+            await updateDayStatus(status.id, { ...status, endDate: newEndStr })
+          } else {
+            await addApprovalRequest({
+              entity: 'status',
+              action: 'update',
+              authorId: user?.id || status.userId,
+              targetUserId: status.userId,
+              before: status,
+              after: {
+                ...status,
+                endDate: newEndStr
+              },
+              comment: status.comment,
+            })
+          }
+          loadData()
+        }
+        return
+      }
+
+      // Если удаляется день из середины диапазона, разбиваем на два статуса
+      if (dateStr > statusStart && dateStr < statusEnd) {
+        if (isAdmin ? confirm('Удалить этот день? Диапазон будет разбит на две части.') : confirm('Отправить на согласование удаление этого дня? Диапазон будет разбит на две части.')) {
+          // Создаем первый статус (до удаляемого дня)
+          const firstEnd = new Date(parseISO(dateStr))
+          firstEnd.setDate(firstEnd.getDate() - 1)
+          const firstEndStr = formatDate(firstEnd, 'yyyy-MM-dd')
+
+          if (isAdmin) {
+            await updateDayStatus(status.id, { ...status, endDate: firstEndStr })
+            const secondStart = new Date(parseISO(dateStr))
+            secondStart.setDate(secondStart.getDate() + 1)
+            const secondStartStr = formatDate(secondStart, 'yyyy-MM-dd')
+            await addDayStatus({
+              userId: status.userId,
+              date: secondStartStr,
+              endDate: statusEnd,
+              type: status.type,
+              comment: status.comment
+            })
+          } else {
+            // Создаем заявки на оба изменения
+            await addApprovalRequest({
+              entity: 'status',
+              action: 'update',
+              authorId: user?.id || status.userId,
+              targetUserId: status.userId,
+              before: status,
+              after: {
+                ...status,
+                endDate: firstEndStr
+              },
+              comment: status.comment,
+            })
+
+            const secondStart = new Date(parseISO(dateStr))
+            secondStart.setDate(secondStart.getDate() + 1)
+            const secondStartStr = formatDate(secondStart, 'yyyy-MM-dd')
+
+            await addApprovalRequest({
+              entity: 'status',
+              action: 'create',
+              authorId: user?.id || status.userId,
+              targetUserId: status.userId,
+              before: null,
+              after: {
+                id: '',
+                userId: status.userId,
+                date: secondStartStr,
+                endDate: statusEnd,
+                type: status.type,
+                comment: status.comment
+              },
+              comment: status.comment,
+            })
+          }
+
+          loadData()
+        }
+        return
+      }
+    }
+
+    // Если статус без endDate или удаляется весь диапазон, удаляем полностью
+    if (isAdmin) {
+      if (confirm('Удалить статус?')) {
+        await deleteDayStatus(status.id)
+        // Small delay to allow Firestore to propagate changes
+        await new Promise(resolve => setTimeout(resolve, 100))
+        await loadData()
+      }
+    } else if (confirm('Отправить на согласование удаление статуса?')) {
+      await addApprovalRequest({
+        entity: 'status',
+        action: 'delete',
+        authorId: user?.id || status.userId,
+        targetUserId: status.userId,
+        before: status,
+        after: null,
+        comment: status.comment,
+      })
+      await loadData()
+    }
+  }
+
+  const isSlotUpcoming = (slot: WorkSlot): boolean => {
+    const moscowTime = getMoscowTime()
+    const today = new Date(moscowTime)
+    today.setHours(0, 0, 0, 0)
+    const slotDate = new Date(slot.date)
+    slotDate.setHours(0, 0, 0, 0)
+
+    // If slot date is in the future, it's upcoming
+    if (slotDate > today) return true
+
+    // If slot date is today, check if any slot time hasn't ended yet
+    if (slotDate.getTime() === today.getTime()) {
+      const now = getMoscowTime()
+      const currentTime = now.getHours() * 60 + now.getMinutes() // minutes since midnight
+
+      // Check if any slot hasn't ended yet
+      return slot.slots.some((s) => {
+        // If slot crosses midnight (has endDate), check endDate instead
+        if (s.endDate) {
+          const endDate = new Date(s.endDate)
+          endDate.setHours(0, 0, 0, 0)
+          const todayEnd = new Date(today)
+          todayEnd.setHours(23, 59, 59)
+
+          // If endDate is in the future, slot is upcoming
+          if (endDate > today) return true
+
+          // If endDate is today, check if end time hasn't passed
+          if (endDate.getTime() === today.getTime()) {
+            const [endHour, endMin] = s.end.split(':').map(Number)
+            const endTime = endHour * 60 + endMin
+            return endTime > currentTime
+          }
+
+          return false
+        }
+
+        // Regular same-day slot
+        const [endHour, endMin] = s.end.split(':').map(Number)
+        const endTime = endHour * 60 + endMin
+        return endTime > currentTime
+      })
+    }
+
+    // Check if slot has endDate in the future or ends today but time hasn't passed
+    const now = getMoscowTime()
+    const currentTime = now.getHours() * 60 + now.getMinutes()
+
+    const hasActiveEndDate = slot.slots.some((s) => {
+      if (s.endDate) {
+        const endDate = new Date(s.endDate)
+        endDate.setHours(0, 0, 0, 0)
+
+        // If endDate is in the future, slot is upcoming
+        if (endDate > today) return true
+
+        // If endDate is today, check if end time hasn't passed
+        if (endDate.getTime() === today.getTime()) {
+          const [endHour, endMin] = s.end.split(':').map(Number)
+          const endTime = endHour * 60 + endMin
+          return endTime > currentTime
+        }
+
+        return false
+      }
+      return false
+    })
+
+    return hasActiveEndDate
+  }
+
+  const getSlotsForDay = (date: string): WorkSlot[] => {
+    let daySlots = slots.filter((s) => s.date === date)
+
+    // Apply filter
+    if (slotFilter !== 'all') {
+      daySlots = daySlots.filter(slot => {
+        const isUpcoming = isSlotUpcoming(slot)
+        if (slotFilter === 'upcoming') return isUpcoming
+        if (slotFilter === 'completed') return !isUpcoming
+        return true
+      })
+    }
+
+    return daySlots
+  }
+
+  const getStatusesForDay = (date: string): DayStatus[] => {
+    return statuses.filter((s) => {
+      // If status has endDate, check if date falls within the range
+      if (s.endDate) {
+        return s.date <= date && s.endDate >= date
+      }
+      // Otherwise, check exact match
+      return s.date === date
+    })
+  }
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedWeek)
+    if (direction === 'prev') {
+      newDate.setDate(newDate.getDate() - 7)
+    } else {
+      newDate.setDate(newDate.getDate() + 7)
+    }
+    setSelectedWeek(newDate)
+    const weekStart = startOfWeek(newDate, { weekStartsOn: 1 })
+    onDateChange?.(null, formatDate(weekStart, 'yyyy-MM-dd'))
+  }
+
+  const toggleBreaksVisibility = (slotId: string) => {
+    setBreaksExpanded((prev: Record<string, boolean>) => ({
+      ...prev,
+      [slotId]: !prev[slotId]
+    }))
+  }
+
+  if (loading) {
+    return (
+      <div className={`rounded-lg p-8 text-center ${theme === 'dark' ? 'bg-[#1a1a1a]' : 'bg-white'} `}>
+        <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Загрузка...</p>
+      </div>
+    )
+  }
+
+  const headingColor = theme === 'dark' ? 'text-white' : 'text-gray-900'
+  // Статусы: выходной - зеленый, больничный - фиолетовый, отпуск - синий, отсутствие - оранжевый, прогул - красный, стажировка - желтый
+  const statusMeta = {
+    dayoff: { label: 'Выходной', tone: 'bg-green-500/10 text-green-500 border border-green-500/20' },
+    sick: { label: 'Больничный', tone: 'bg-purple-500/10 text-purple-500 border border-purple-500/20' },
+    vacation: { label: 'Отпуск', tone: 'bg-blue-500/10 text-blue-500 border border-blue-500/20' },
+    absence: { label: 'Отсутствие', tone: 'bg-orange-500/10 text-orange-500 border border-orange-500/20' },
+    truancy: { label: 'Прогул', tone: 'bg-red-500/10 text-red-500 border border-red-500/20' },
+    internship: { label: 'Стажировка', tone: 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' },
+    working: { label: 'Рабочий', tone: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' },
+    weekend: { label: 'Выходной', tone: 'bg-green-500/10 text-green-500 border border-green-500/20' },
+  } as const satisfies Record<DayStatusType, { label: string; tone: string }>
+
+  const SLOT_CATEGORY_COLORS: Record<SlotCategory, { bg: string; text: string; border: string }> = {
+    memecoins: { bg: 'bg-emerald-100 dark:bg-emerald-900/40', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-300 dark:border-emerald-700' },
+    futures: { bg: 'bg-blue-100 dark:bg-blue-900/40', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-700' },
+    nft: { bg: 'bg-purple-100 dark:bg-purple-900/40', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' },
+    spot: { bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' },
+    airdrop: { bg: 'bg-cyan-100 dark:bg-cyan-900/40', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-300 dark:border-cyan-700' },
+    polymarket: { bg: 'bg-pink-100 dark:bg-pink-900/40', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-300 dark:border-pink-700' },
+    staking: { bg: 'bg-indigo-100 dark:bg-indigo-900/40', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-300 dark:border-indigo-700' },
+    other: { bg: 'bg-gray-100 dark:bg-gray-900/40', text: 'text-gray-700 dark:text-gray-300', border: 'border-gray-300 dark:border-gray-700' },
+  }
+
+  return (
+    <div className={`rounded-2xl ${theme === 'dark' ? 'bg-transparent' : 'bg-white'} overflow-visible`}>
+      {/* Week navigation */}
+      <div
+        className={`p-3 sm: p-4 border-b ${theme === 'dark' ? 'border-white/5' : 'border-gray-100'} flex flex-col gap-2 sm: gap-3 sm: flex-row sm: items-center sm: justify-between`}
+      >
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => navigateWeek('prev')}
+            className={`p-1.5 sm: p-2 rounded-xl border transition - all ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900 shadow-sm'} `}
+          >
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+          </button>
+
+          <button
+            onClick={() => {
+              const today = new Date()
+              const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+              setSelectedWeek(weekStart)
+              onDateChange?.(null, formatDate(weekStart, 'yyyy-MM-dd'))
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs sm: text-sm font-semibold transition - all ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900 shadow-sm'} `}
+            title="Вернуться к сегодняшнему дню"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-purple-500" />
+            <span className="hidden sm:inline">Актуальный день</span>
+          </button>
+
+          <button
+            onClick={() => navigateWeek('next')}
+            className={`p-1.5 sm: p-2 rounded-xl border transition - all ${theme === 'dark' ? 'bg-white/5 border-white/10 hover:bg-white/10 text-white' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-900 shadow-sm'} `}
+          >
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+          </button>
+        </div>
+        <span className={`${headingColor} font-black text-lg tracking-tight whitespace-nowrap`}>
+          {formatDate(weekDays[0], 'd MMMM')} — {formatDate(weekDays[6], 'd MMMM yyyy')}
+        </span>
+        <button
+          onClick={() => navigateWeek('next')}
+          className={`px-4 py-2 text-sm font-bold rounded-xl transition - all flex items-center gap-2 hover: scale-105 active: scale-95 ${theme === 'dark'
+            ? 'bg-[#151a21] text-gray-300 hover:text-white hover:bg-[#1f2937]'
+            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+            } `}
+        >
+          <span>След. неделя</span>
+          <ChevronDown className="w-4 h-4 -rotate-90" />
+        </button>
+      </div>
+
+      {/* Week grid */}
+      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {weekDays.map((day) => {
+          const dateStr = formatDate(day, 'yyyy-MM-dd')
+          const daySlots = getSlotsForDay(dateStr)
+          const dayStatuses = getStatusesForDay(dateStr)
+          const isToday = isSameDate(day, today)
+          const dayCardBase = 'relative rounded-xl p-4 sm:p-5 border transition-all duration-300'
+          const dayCardTone = theme === 'dark' ? 'bg-[#0b1015] border-white/5 shadow-md' : 'bg-gray-50 border-gray-200 shadow-sm'
+          const dayCardHighlight = theme === 'dark'
+            ? 'border-[#4C7F6E]/50 bg-[#4C7F6E]/5 ring-1 ring-[#4C7F6E]/20'
+            : 'border-[#4C7F6E] bg-[#4C7F6E]/10 ring-2 ring-[#4C7F6E]/30'
+
+          return (
+            <div
+              key={dateStr}
+              className={`${dayCardBase} ${dayCardTone} ${isToday ? dayCardHighlight : ''} `}
+            >
+              {isToday && (
+                <div className="absolute top-3 right-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#4C7F6E] text-white text-xs font-semibold shadow-lg ring-2 ring-white/50 dark:ring-[#4C7F6E]/30">
+                  <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                  <span className="relative">Сегодня</span>
+                </div>
+              )}
+              <h3 className={`text-lg font-semibold mb-3 ${headingColor} `}>
+                {formatDate(day, 'dd.MM.yyyy')}
+              </h3>
+
+              <div className="space-y-3 sm:space-y-4">
+                {/* Statuses */}
+                {dayStatuses.map((status) => {
+                  const { displayName, avatar } = resolveUser(status.userId)
+                  return (
+                    <div
+                      key={status.id}
+                      className={`relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl backdrop-blur text-center sm:text-left ring-1 ring-inset ring-black/5 dark:ring-white/5 ${statusMeta[status.type]?.tone || ''}`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-center sm:justify-start w-full">
+                        {avatar && (
+                          <img
+                            src={avatar}
+                            alt="Avatar"
+                            className="w-8 h-8 rounded-full object-cover mr-2" // Стили для аватара
+                          />
+                        )}
+                        <span className="font-semibold text-base sm:text-lg">{displayName}</span>
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/70 dark:bg-white/10 text-xs sm:text-sm font-semibold">
+                          {statusMeta[status.type]?.label || status.type}
+                          {status.comment && (
+                            <div className="relative group/statuscomm ml-1">
+                              <Info className="w-3.5 h-3.5 opacity-60 hover:opacity-100 cursor-help" />
+                              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg max-w-xs whitespace-normal break-words opacity-0 invisible group-hover/statuscomm:opacity-100 group-hover/statuscomm:visible transition-all z-[100] shadow-xl border border-white/10">
+                                {status.comment}
+                                <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 justify-center sm:justify-end w-full">
+                        {(isAdmin || user?.id === status.userId) ? (
+                          <>
+                            <button
+                              onClick={() => onEditStatus(status)}
+                              className={`p-1 rounded transition-colors ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                              title="Редактировать (только для админа)"
+                            >
+                              <Edit className="w-4 h-4 text-current" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStatus(status, dateStr)}
+                              className={`p-1 rounded transition-colors ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                              title="Удалить (только для админа)"
+                            >
+                              <Trash2 className="w-4 h-4 text-current" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              disabled
+                              className={`p-1 cursor-not-allowed rounded ${theme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}
+                              title="Вы можете редактировать только свои статусы"
+                            >
+                              <Edit className="w-4 h-4 text-current opacity-60" />
+                            </button>
+                            <button
+                              disabled
+                              className={`p-1 cursor-not-allowed rounded ${theme === 'dark' ? 'bg-white/5 text-white/60' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}
+                              title="Вы можете удалять только свои статусы"
+                            >
+                              <Trash2 className="w-4 h-4 text-current opacity-60" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Slots */}
+                {daySlots.map((slot) => {
+                  const { displayName, avatar } = resolveUser(slot.userId)
+                  const isUpcoming = isSlotUpcoming(slot)
+                  const slotBg = isUpcoming
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 border-emerald-300/40'
+                    : 'bg-gradient-to-r from-slate-500 to-slate-700 border-slate-300/40'
+                  const SlotIcon = isUpcoming ? CalendarIcon : CheckCircle2
+
+                  return (
+                    <div
+                      key={slot.id}
+                      className={`group relative space-y-2 sm:space-y-3 p-3 sm:p-4 ${slotBg} rounded-lg sm:rounded-xl shadow-xl border-2 transition-all duration-300 hover:shadow-2xl active:scale-[0.98] sm:hover:scale-[1.03] mb-2 sm:mb-3 hover:z-50 ${isUpcoming
+                        ? 'hover:border-emerald-200/80 ring-2 ring-emerald-200/40 hover:ring-4 hover:ring-emerald-200/60'
+                        : 'hover:border-slate-200/80 ring-2 ring-slate-200/40 hover:ring-4 hover:ring-slate-200/60'
+                        }`}
+                    >
+                      <div className="flex items-center justify-center sm:justify-start border-b border-white/20 pb-2 sm:pb-3">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                          {avatar && (
+                            <img
+                              src={avatar}
+                              alt="Avatar"
+                              className="w-8 h-8 rounded-full object-cover" // Стили для аватара
+                            />
+                          )}
+                          <span className="text-white font-bold text-sm sm:text-base group-hover:scale-105 transition-transform duration-300 truncate text-center sm:text-left w-full sm:w-auto">{displayName}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          {(isAdmin || user?.id === slot.userId) ? (
+                            <>
+                              <button
+                                onClick={() => onEditSlot(slot)}
+                                className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                              >
+                                <Edit className="w-4 h-4 text-white" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSlot(slot)}
+                                className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 text-white" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                disabled
+                                className="p-1.5 bg-white/10 cursor-not-allowed rounded-lg"
+                                title="Вы можете редактировать только свои слоты"
+                              >
+                                <Edit className="w-4 h-4 text-white/50" />
+                              </button>
+                              <button
+                                disabled
+                                className="p-1.5 bg-white/10 cursor-not-allowed rounded-lg"
+                                title="Вы можете удалять только свои слоты"
+                              >
+                                <Trash2 className="w-4 h-4 text-white/50" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {slot.slots.map((s, slotIdx) => (
+                          <div key={slotIdx} className="space-y-1.5">
+                            {/* Main slot time */}
+                            <div className={`bg-white/25 backdrop-blur-md rounded-md sm: rounded-lg px-2 sm: px-3 py-1.5 sm: py-2 border-2 transition - all duration-300 hover: scale-105 hover: shadow-xl ${isUpcoming
+                              ? 'border-white/40 ring-2 ring-white/20 hover:border-white/60 hover:ring-4 hover:ring-white/40'
+                              : 'border-white/30 ring-2 ring-white/10 hover:border-white/50 hover:ring-4 hover:ring-white/30'
+                              } `}>
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                <SlotIcon className={`w-3.5 h-3.5 sm: w-4 sm: h-4 text-white flex-shrink - 0 ${isUpcoming ? 'animate-pulse' : ''} `} />
+                                <span className="text-white font-bold text-xs sm:text-sm whitespace-nowrap">{s.start} - {s.end}</span>
+                                {s.endDate && (
+                                  <span className="text-white/80 font-medium text-[10px] sm:text-xs whitespace-nowrap">
+                                    (до {formatDate(new Date(s.endDate), 'dd.MM')})
+                                  </span>
+                                )}
+                                {slot.category && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium whitespace-nowrap ${SLOT_CATEGORY_COLORS[slot.category as SlotCategory]?.bg || 'bg-white/20'
+                                    } ${SLOT_CATEGORY_COLORS[slot.category as SlotCategory]?.text || 'text-white'} ${SLOT_CATEGORY_COLORS[slot.category as SlotCategory]?.border || 'border-white/30'
+                                    } `}>
+                                    {SLOT_CATEGORY_META[slot.category as SlotCategory]?.label || slot.category}
+                                  </span>
+                                )}
+                                {slot.taskId && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full border font-medium whitespace-nowrap bg-violet-500/30 text-white border-violet-400/50 flex items-center gap-0.5" title={`ID задачи: ${slot.taskId}`}>
+                                    <ClipboardList className="w-2.5 h-2.5" />
+                                    {slot.taskId}
+                                  </span>
+                                )}
+                                {slot.comment && (
+                                  <div className="relative group">
+                                    <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white/60 hover:text-white cursor-help flex-shrink-0" />
+                                    <div className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {/* Toggle breaks button */}
+                            {s.breaks && s.breaks.length > 0 && (
+                              <div className="flex justify-center">
+                                <button
+                                  onClick={() => toggleBreaksVisibility(slot.id)}
+                                  className={`p-1 rounded-md transition - all duration-200 hover: scale-110 ${breaksExpanded[slot.id]
+                                    ? 'text-white hover:text-white/80'
+                                    : 'text-white/70 hover:text-white'
+                                    } `}
+                                  title={breaksExpanded[slot.id] ? 'Скрыть перерывы' : 'Показать перерывы'}
+                                >
+                                  {breaksExpanded[slot.id] ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                            {/* Breaks */}
+                            {s.breaks && s.breaks.length > 0 && breaksExpanded[slot.id] && (
+                              <div className="space-y-1 w-full">
+                                <div className={`text-[10px] ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} font-medium text-center sm:text-left`}>Перерывы:</div>
+                                {s.breaks.map((breakItem, breakIdx) => (
+                                  <div key={breakIdx} className={`${theme === 'dark'
+                                    ? 'bg-gray-700/95'
+                                    : 'bg-white'
+                                    } ${theme === 'dark' ? 'text-gray-200' : 'text-gray-900'} border-2 ${theme === 'dark' ? 'border-orange-500/60' : 'border-orange-300'} rounded-md sm:rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl ${theme === 'dark'
+                                      ? 'hover:border-orange-400/80 hover:shadow-orange-500/30 ring-2 ring-orange-500/20 hover:ring-4 hover:ring-orange-400/40'
+                                      : 'hover:border-orange-400 hover:shadow-orange-400/30 ring-2 ring-orange-300/20 hover:ring-4 hover:ring-orange-300/40'
+                                    } w-full`}>
+                                    <span className="flex items-center gap-1 sm:gap-1.5 justify-center flex-wrap w-full">
+                                      <span className={`w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full ${theme === 'dark' ? 'bg-orange-400' : 'bg-orange-500'} animate-pulse flex-shrink-0`}></span>
+                                      <span className="whitespace-nowrap">{breakItem.start} - {breakItem.end}</span>
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {daySlots.length === 0 && dayStatuses.length === 0 && dateStr === formatDate(today, 'yyyy-MM-dd') && (
+                  <div className={`rounded-lg px-3 py-2 text-xs font-semibold ring-1 ring-inset ring-black/5 dark:ring-white/10 ${statusMeta.absence.tone}`}>
+                    Отсутствие
+                  </div>
+                )}
+                {daySlots.length === 0 && dayStatuses.length === 0 && dateStr !== formatDate(today, 'yyyy-MM-dd') && (
+                  <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Нет данных
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

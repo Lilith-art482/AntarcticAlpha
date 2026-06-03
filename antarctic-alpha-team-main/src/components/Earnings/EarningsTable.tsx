@@ -1,0 +1,147 @@
+ // Earnings statistics table
+import { useThemeStore } from '@/store/themeStore'
+import { formatDate, getWeekRange } from '@/utils/dateUtils'
+import { getUserNicknameSync } from '@/utils/userUtils'
+import { Earnings, TEAM_MEMBERS, EARNINGS_CATEGORY_META, EarningsCategory } from '@/types'
+import { calculatePoolShare, getTotalAmount } from '@/utils/earningsCalculations'
+import Avatar from '@/components/Avatar'
+
+interface EarningsTableProps {
+  earnings: Earnings[]
+}
+
+export const EarningsTable = ({ earnings }: EarningsTableProps) => {
+  const { theme } = useThemeStore()
+
+  const weekRange = getWeekRange()
+  const weekStart = formatDate(weekRange.start, 'yyyy-MM-dd')
+  const weekEnd = formatDate(weekRange.end, 'yyyy-MM-dd')
+
+  const monthStart = formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd')
+  const monthEnd = formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd')
+
+  // Функция для расчёта пула с учётом extraWalletsCount
+  const getPoolValue = (e: Earnings) => {
+    if (e.poolAmount) return e.poolAmount
+    const totalAmount = getTotalAmount(e.amount, e.extraWalletsCount, e.walletType)
+    const { poolShare } = calculatePoolShare(totalAmount, e.category as EarningsCategory, e.walletType || 'general')
+    return poolShare
+  }
+
+  const getStats = (userId: string, startDate: string, endDate: string) => {
+    const userEarnings = earnings.filter((e) => {
+      const allParticipants = e.participants && e.participants.length > 0
+        ? [...e.participants, e.userId]
+        : [e.userId]
+      // Фильтруем только одобренные earnings
+      const isApproved = e.status === 'approved' || !e.status
+      return allParticipants.includes(userId) && e.date >= startDate && e.date <= endDate && isApproved
+    })
+
+    const totalEarnings = userEarnings.reduce((sum, e) => {
+      const participantCount = e.participants && e.participants.length > 0 ? e.participants.length : 1
+      const totalAmount = getTotalAmount(e.amount, e.extraWalletsCount, e.walletType)
+      const pool = getPoolValue(e)
+      const net = Math.max(totalAmount - pool, 0)
+      return sum + (net / participantCount)
+    }, 0)
+
+    const totalPool = userEarnings.reduce((sum, e) => {
+      const participantCount = e.participants && e.participants.length > 0 ? e.participants.length : 1
+      const pool = getPoolValue(e)
+      return sum + (pool / participantCount)
+    }, 0)
+
+    const categories = Array.from(new Set(userEarnings.map(e => e.category))).filter(cat => cat !== 'other')
+
+    return { totalEarnings, totalPool, count: userEarnings.length, categories }
+  }
+
+  const sortedMembers = TEAM_MEMBERS.map((member) => {
+    const monthStats = getStats(member.id, monthStart, monthEnd)
+    const weekStats = getStats(member.id, weekStart, weekEnd)
+    return { ...member, ...monthStats, weeklyNet: weekStats.totalEarnings }
+  }).sort((a, b) => b.totalEarnings - a.totalEarnings)
+
+  const KPI_TARGET = 50000
+
+  return (
+    <div className={`overflow-hidden rounded-3xl border shadow-2xl ${theme === 'dark' ? 'bg-[#0b1015] border-white/5' : 'bg-white border-gray-100'}`}>
+      <table className="w-full text-left border-collapse">
+        <thead>
+          <tr className={theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'}>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Ранг</th>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Участник</th>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Сферы</th>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Сумма пула</th>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Чистые средства</th>
+            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">KPI</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {sortedMembers.map((member, index) => {
+            const kpi = (member.weeklyNet / KPI_TARGET) * 100
+            const rankColor = index === 0 ? 'text-amber-500' : index === 1 ? 'text-gray-400' : index === 2 ? 'text-orange-500' : 'text-gray-600'
+            return (
+              <tr
+                key={member.id}
+                className={`group transition-all duration-300 ${theme === 'dark' ? 'hover:bg-white/[0.02]' : 'hover:bg-gray-50'}`}
+              >
+                <td className="px-6 py-5 text-center">
+                  <span className={`text-sm font-black ${rankColor}`}>
+                    #{index + 1}
+                  </span>
+                </td>
+                <td className="px-6 py-5 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="relative">
+                      <Avatar userId={member.id} size="sm" className="w-9 h-9 ring-2 ring-white/5" />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-black ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{getUserNicknameSync(member.id)}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-5 text-center">
+                  <div className="flex flex-wrap gap-1.5 justify-center">
+                    {member.categories.length > 0 ? (
+                      member.categories.map(cat => (
+                        <span key={cat} className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tight border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-600'
+                          }`}>
+                          {EARNINGS_CATEGORY_META[cat as EarningsCategory]?.label || cat}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">—</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-5 text-center">
+                  <span className={`text-sm font-black ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    {member.totalPool.toLocaleString()} ₽
+                  </span>
+                </td>
+                <td className="px-6 py-5 text-center">
+                  <span className="text-sm font-black text-emerald-500">
+                    {member.totalEarnings.toLocaleString()} ₽
+                  </span>
+                </td>
+                <td className="px-6 py-5 text-center w-48">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className={`w-24 h-1.5 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-100'}`}>
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${theme === 'dark' ? 'bg-white' : 'bg-black'}`}
+                        style={{ width: `${Math.min(kpi, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-black text-gray-500">{kpi.toFixed(0)}%</span>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
