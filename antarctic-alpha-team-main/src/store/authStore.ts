@@ -14,33 +14,6 @@ const syncAllTeamMembersToFirestore = async (): Promise<void> => {
   // logger.log('[syncAllTeamMembers] Sync disabled - using Firestore as source of truth')
   return Promise.resolve()
 }
-        if (existing.password !== teamMember.password) {
-          updates.password = teamMember.password
-          logger.log('[syncAllTeamMembers] Password differs: existing=' + (existing.password ? existing.password.substring(0, 10) + '...' : 'empty') + ', updating to=' + (teamMember.password ? teamMember.password.substring(0, 10) + '...' : 'empty'))
-        }
-        if (existing.recoveryCode !== teamMember.recoveryCode) updates.recoveryCode = teamMember.recoveryCode
-        if (existing.authCode !== teamMember.authCode) updates.authCode = teamMember.authCode
-        if (existing.phone !== teamMember.phone) updates.phone = teamMember.phone
-        if (existing.email !== teamMember.email) updates.email = teamMember.email
-        if (existing.name !== teamMember.name) updates.name = teamMember.name
-        if (existing.avatar !== teamMember.avatar) updates.avatar = teamMember.avatar
-        if (existing.role !== teamMember.role) updates.role = teamMember.role
-        if (existing.nickname !== teamMember.nickname) updates.nickname = teamMember.nickname
-        
-        if (Object.keys(updates).length > 0) {
-          logger.log('[syncAllTeamMembers] Applying updates:', Object.keys(updates))
-          await updateUser(teamMember.id, updates)
-          logger.log('[syncAllTeamMembers] Updates applied successfully for user:', teamMember.id)
-        } else {
-          logger.log('[syncAllTeamMembers] No updates needed for user:', teamMember.id)
-        }
-      }
-    }
-    logger.log('[syncAllTeamMembers] Sync complete')
-  } catch (error: any) {
-    logger.error('[syncAllTeamMembers] Error:', error?.code || error?.message || error)
-  }
-}
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth email
 const USER_EMAIL_MAP: Record<string, string> = {
