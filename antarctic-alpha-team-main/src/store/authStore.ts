@@ -8,40 +8,12 @@ import { auth } from '@/firebase/config'
 import { logger } from '@/utils/logger'
 import { authenticateWithBiometric } from '@/utils/webAuthn'
 
-// Sync all TEAM_MEMBERS to Firestore on first load
+// Sync all TEAM_MEMBERS to Firestore on first load (ONE-TIME ONLY - disabled after setup)
 const syncAllTeamMembersToFirestore = async (): Promise<void> => {
-  logger.log('[syncAllTeamMembers] Starting sync for all team members')
-  try {
-    const existingUsers = await getAllUsers()
-    logger.log('[syncAllTeamMembers] Existing users in Firestore:', existingUsers.length)
-    
-    for (const teamMember of TEAM_MEMBERS) {
-      const existing = existingUsers.find(u => u.id === teamMember.id)
-      
-      if (!existing) {
-        // User doesn't exist - create from TEAM_MEMBERS
-        logger.log('[syncAllTeamMembers] Creating user:', teamMember.id, teamMember.login)
-        await updateUser(teamMember.id, {
-          name: teamMember.name,
-          login: teamMember.login,
-          password: teamMember.password,
-          recoveryCode: teamMember.recoveryCode,
-          authCode: teamMember.authCode,
-          phone: teamMember.phone,
-          email: teamMember.email,
-          avatar: teamMember.avatar,
-          role: teamMember.role,
-          nickname: teamMember.nickname,
-        })
-      } else {
-        // User exists - update credentials from TEAM_MEMBERS if they differ
-        logger.log('[syncAllTeamMembers] Updating user:', teamMember.id)
-        const updates: Partial<User> = {}
-        
-        if (existing.login !== teamMember.login) {
-          updates.login = teamMember.login
-          logger.log('[syncAllTeamMembers] Login differs:', existing.login, '->', teamMember.login)
-        }
+  // Disabled - users should be managed directly in Firestore now
+  // logger.log('[syncAllTeamMembers] Sync disabled - using Firestore as source of truth')
+  return Promise.resolve()
+}
         if (existing.password !== teamMember.password) {
           updates.password = teamMember.password
           logger.log('[syncAllTeamMembers] Password differs: existing=' + (existing.password ? existing.password.substring(0, 10) + '...' : 'empty') + ', updating to=' + (teamMember.password ? teamMember.password.substring(0, 10) + '...' : 'empty'))
@@ -699,70 +671,22 @@ export const useAuthStore = create<AuthState>()(
 login: async (login: string, password: string) => {
         logger.log('[login] Attempting login for:', login)
         
-        // Normalize login input - check if it's a phone number or email
+        // Normalize login input
         const normalizedLogin = login.trim()
-        const isPhoneNumber = /^[\d\+\-\(\)\s]+$/.test(normalizedLogin) && normalizedLogin.replace(/\D/g, '').length >= 10
+        const normalizedInput = normalizedLogin.replace(/\D/g, '') // Remove all non-digits for phone comparison
         
-        // Validate login format - must be phone number or end with @antarctic-alpha
-        if (!isPhoneNumber && !normalizedLogin.endsWith('@antarctic-alpha')) {
-          logger.log('[login] Invalid login format - must be phone or @antarctic-alpha email')
-          return { success: false }
-        }
-
-        // Try to sign in to Firebase Auth so Firestore rules allow reads.
-        // First: try the user that matches the entered login/phone directly.
-        let signedInUserId: string | null = getUserIdByLoginOrPhone(normalizedLogin)
-        let firebaseAuthSuccess = false
-
-        if (signedInUserId) {
-          logger.log('[login] Trying Firebase Auth for matched user:', signedInUserId)
-          firebaseAuthSuccess = await signInToFirebaseAuth(signedInUserId)
-        }
-
-        // Fallback: try each TEAM_MEMBER in case the login was changed in Firestore
-        if (!firebaseAuthSuccess) {
-          for (const tm of TEAM_MEMBERS) {
-            logger.log('[login] Fallback Firebase Auth try:', tm.id)
-            firebaseAuthSuccess = await signInToFirebaseAuth(tm.id)
-            if (firebaseAuthSuccess) {
-              signedInUserId = tm.id
-              logger.log('[login] ✅ Firebase Auth signed in with fallback:', tm.id)
-              break
-            }
-          }
-        }
-
-        // Last resort: anonymous auth so Firestore rules that only require request.auth != null still work
-        if (!firebaseAuthSuccess) {
-          logger.log('[login] Trying anonymous Firebase Auth fallback...')
-          firebaseAuthSuccess = await signInAnonymouslyToFirebase()
-          if (firebaseAuthSuccess) {
-            // Keep the matched userId if we have one, otherwise stay null for now
-            signedInUserId = signedInUserId || null
-          }
-        }
-
-        if (!firebaseAuthSuccess) {
-          logger.log('[login] ❌ Could not sign in to Firebase Auth (email or anonymous)')
-          return { success: false }
-        }
-
-        // Sync TEAM_MEMBERS to Firestore if needed
-        await syncAllTeamMembersToFirestore()
-
-        // Now get user from Firestore
+        // Get all users from Firestore
         try {
-          logger.log('[login] Fetching from Firestore...')
+          logger.log('[login] Fetching users from Firestore...')
           const firestoreUsers = await getAllUsers()
           logger.log('[login] Firestore users count:', firestoreUsers.length)
           
-          // Find user by login (email) OR phone number OR email field
-          const normalizedInput = normalizedLogin.replace(/\D/g, '') // Remove all non-digits for phone comparison
+          // Find user by login/email OR phone number
           let firestoreUser = firestoreUsers.find((u) => {
-            // Try email/login match first
+            // Try login match first
             if (u.login === normalizedLogin) return true
             
-            // Try email field match (for users who have email separate from login)
+            // Try email field match
             if (u.email && u.email === normalizedLogin) return true
             
             // Try phone match (normalize both to digits only)
@@ -774,114 +698,113 @@ login: async (login: string, password: string) => {
             return false
           })
 
-          if (firestoreUser) {
-            logger.log('[login] ✅ Found user in Firestore:', firestoreUser.id, firestoreUser.login, 'phone:', firestoreUser.phone)
-            logger.log('[login] Firestore password:', firestoreUser.password ? 'exists (length: ' + firestoreUser.password.length + ')' : 'empty')
-            logger.log('[login] Input password length:', password?.length)
-            logger.log('[login] Passwords match:', firestoreUser.password === password)
-            
-            // FIRST verify password - this is the main authentication
-            if (firestoreUser.password !== password) {
-              logger.log('[login] ❌ Password mismatch')
-              logger.log('[login] Expected (from Firestore):', firestoreUser.password?.substring(0, 10) + '...')
-              logger.log('[login] Received (input):', password?.substring(0, 10) + '...')
-              return { success: false }
-            }
-            logger.log('[login] ✅ Password correct')
-
-            // THEN check if user has authCode - require verification
-            if (firestoreUser.authCode) {
-              logger.log('[login] User has authCode:', firestoreUser.authCode, 'requiring verification')
-              set({ 
-                pendingUserId: firestoreUser.id,
-                pendingAuthCode: firestoreUser.authCode 
-              })
-              return { success: true, requiresCode: true }
-            }
-            logger.log('[login] No authCode required, proceeding with full login')
-
-            // No authCode - proceed with full login
-              const now = new Date().toISOString()
-              const browserInfo = getBrowserInfo()
-              const city = await getSessionCity()
-
-              const newSession: UserSession = {
-                id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                userId: firestoreUser.id,
-                browser: browserInfo.browser,
-                device: browserInfo.device,
-                deviceModel: browserInfo.deviceModel,
-                os: browserInfo.os,
-                loginAt: now,
-                city,
-                isCurrent: true
-              }
-
-try {
-                await addSession({
-                  userId: newSession.userId,
-                  browser: newSession.browser,
-                  device: newSession.device,
-                  deviceModel: newSession.deviceModel,
-                  os: newSession.os,
-                  loginAt: newSession.loginAt,
-                  city: newSession.city,
-                  isCurrent: true
-                })
-              } catch (e) {
-                logger.error('Failed to save session to Firestore:', e)
-              }
-
-              // Use Firestore data directly - it's the primary source
-              const teamMember = TEAM_MEMBERS.find(u => u.id === firestoreUser.id)
-              const user: User = {
-                ...teamMember,
-                ...firestoreUser,
-                id: firestoreUser.id || teamMember?.id || '',
-                login: firestoreUser.login || teamMember?.login || '',
-                password: firestoreUser.password || teamMember?.password || '',
-                recoveryCode: firestoreUser.recoveryCode || teamMember?.recoveryCode || '',
-                phone: firestoreUser.phone || teamMember?.phone || '',
-                email: firestoreUser.email || teamMember?.email || '',
-                authCode: firestoreUser.authCode || teamMember?.authCode || '',
-}
-
-              logger.log('[login] Setting user in state:', user.id, user.login)
-              set(() => ({
-                user,
-                isAuthenticated: true,
-                lastAuthTime: now,
-                pendingAuthCode: null,
-                pendingUserId: null,
-                sessions: [newSession],
-                codeVerified: true
-              }))
-
-              try {
-                const userSessions = await getSessions(firestoreUser.id)
-                set({ sessions: userSessions })
-              } catch (e) {
-                logger.error('Failed to load sessions from Firestore:', e)
-              }
-
-              if (user.role === 'admin') {
-                useAdminStore.getState().activateAdmin('', user.id)
-              } else if (isUserLimitedAdmin(user.id)) {
-                useAdminStore.getState().activateAdmin('', user.id)
-              }
-
-              logger.log('[login] Login successful (Firestore)')
-              return { success: true, requiresCode: false }
-          } else {
-            logger.log('[login] User not found in Firestore')
+          if (!firestoreUser) {
+            logger.log('[login] ❌ User not found in Firestore')
+            return { success: false }
           }
-        } catch (error: any) {
-          logger.error('[login] ❌ Firestore error:', error?.code || error?.message || error)
-        }
+          
+          logger.log('[login] ✅ Found user in Firestore:', firestoreUser.id, firestoreUser.login)
+          logger.log('[login] Firestore password length:', firestoreUser.password?.length || 0)
+          logger.log('[login] Input password length:', password?.length)
+          logger.log('[login] Passwords match:', firestoreUser.password === password)
+            
+          // Verify password
+          if (firestoreUser.password !== password) {
+            logger.log('[login] ❌ Password mismatch')
+            logger.log('[login] Expected (from Firestore):', firestoreUser.password?.substring(0, 10) + '...')
+            logger.log('[login] Received (input):', password?.substring(0, 10) + '...')
+            return { success: false }
+          }
+          logger.log('[login] ✅ Password correct')
 
-        // No fallback - if not in Firestore with correct password, deny access
-        logger.log('[login] ❌ Login failed - user not found or wrong password')
-        return { success: false }
+          // Check if user has authCode - require verification
+          if (firestoreUser.authCode) {
+            logger.log('[login] User has authCode:', firestoreUser.authCode, 'requiring verification')
+            set({ 
+              pendingUserId: firestoreUser.id,
+              pendingAuthCode: firestoreUser.authCode 
+            })
+            return { success: true, requiresCode: true }
+          }
+          logger.log('[login] No authCode required, proceeding with full login')
+
+          // Full login - create session
+          const now = new Date().toISOString()
+          const browserInfo = getBrowserInfo()
+          const city = await getSessionCity()
+
+          const newSession: UserSession = {
+            id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId: firestoreUser.id,
+            browser: browserInfo.browser,
+            device: browserInfo.device,
+            deviceModel: browserInfo.deviceModel,
+            os: browserInfo.os,
+            loginAt: now,
+            city,
+            isCurrent: true
+          }
+
+          try {
+            await addSession({
+              userId: newSession.userId,
+              browser: newSession.browser,
+              device: newSession.device,
+              deviceModel: newSession.deviceModel,
+              os: newSession.os,
+              loginAt: newSession.loginAt,
+              city: newSession.city,
+              isCurrent: true
+            })
+          } catch (e) {
+            logger.error('Failed to save session to Firestore:', e)
+          }
+
+          // Use Firestore data directly
+          const teamMember = TEAM_MEMBERS.find(u => u.id === firestoreUser.id)
+          const user: User = {
+            ...teamMember,
+            ...firestoreUser,
+            id: firestoreUser.id || teamMember?.id || '',
+            login: firestoreUser.login || teamMember?.login || '',
+            password: firestoreUser.password || teamMember?.password || '',
+            recoveryCode: firestoreUser.recoveryCode || teamMember?.recoveryCode || '',
+            phone: firestoreUser.phone || teamMember?.phone || '',
+            email: firestoreUser.email || teamMember?.email || '',
+            authCode: firestoreUser.authCode || teamMember?.authCode || '',
+          }
+
+          logger.log('[login] Setting user in state:', user.id, user.login)
+          set(() => ({
+            user,
+            isAuthenticated: true,
+            lastAuthTime: now,
+            pendingAuthCode: null,
+            pendingUserId: null,
+            sessions: [newSession],
+            codeVerified: true
+          }))
+
+          try {
+            const userSessions = await getSessions(firestoreUser.id)
+            set({ sessions: userSessions })
+          } catch (e) {
+            logger.error('Failed to load sessions from Firestore:', e)
+          }
+
+          if (user.role === 'admin') {
+            useAdminStore.getState().activateAdmin('', user.id)
+          } else if (isUserLimitedAdmin(user.id)) {
+            useAdminStore.getState().activateAdmin('', user.id)
+          }
+
+          logger.log('[login] Login successful (Firestore only)')
+          return { success: true, requiresCode: false }
+          
+        } catch (error: any) {
+          logger.error('[login] ❌ Error:', error?.code || error?.message || error)
+          return { success: false }
+        }
       },
 
       verifyAuthCode: async (code: string, password: string) => {
@@ -906,7 +829,7 @@ try {
           console.error('Error fetching user from Firestore:', error)
         }
 
-// Verify password from Firestore first
+        // Verify password from Firestore first
         if (firestoreUser?.password && firestoreUser.password !== password) {
           logger.log('[verifyAuthCode] Password mismatch')
           return false
@@ -923,13 +846,7 @@ try {
         // Password verified - complete the login
         const now = new Date().toISOString()
         
-        // Sign in to Firebase Auth for Firestore rules
-        const authOk = await signInToFirebaseAuth(state.pendingUserId)
-        if (!authOk) {
-          await signInAnonymouslyToFirebase()
-        }
-
-        // Merge data: Firestore takes priority (user's edits are saved there)
+        // Get user data from Firestore
         const user: User = {
           // Start with TEAM_MEMBERS defaults
           ...teamMember,
@@ -945,10 +862,6 @@ try {
           recoveryCode: firestoreUser?.recoveryCode || teamMember?.recoveryCode || '',
           phone: firestoreUser?.phone || teamMember?.phone || '',
           email: firestoreUser?.email || teamMember?.email || '',
-        }
-
-        if (!user) {
-          return false
         }
 
         const browserInfo = getBrowserInfo()
@@ -967,7 +880,7 @@ try {
         }
 
         // Save session to Firestore
-try {
+        try {
           await addSession({
             userId: newSession.userId,
             browser: newSession.browser,
@@ -992,15 +905,15 @@ try {
           codeVerified: true
         }))
 
-// Load all sessions for this user from Firestore
+        // Load all sessions for this user from Firestore
         try {
           const userSessions = await getSessions(user.id)
           set({ sessions: userSessions })
         } catch (e) {
           logger.error('Failed to load sessions from Firestore:', e)
         }
-
-if (user.role === 'admin') {
+        
+        if (user.role === 'admin') {
           useAdminStore.getState().activateAdmin('', user.id)
         } else if (isUserLimitedAdmin(user.id)) {
           useAdminStore.getState().activateAdmin('', user.id)
@@ -1010,9 +923,6 @@ if (user.role === 'admin') {
       },
 
       logout: async () => {
-        // Sign out from Firebase Auth
-        await signOutFromFirebaseAuth()
-        
         useAdminStore.getState().deactivateAdmin()
         set({
           user: null, 
@@ -1028,18 +938,15 @@ if (user.role === 'admin') {
         const state = get()
         const sessionToDelete = state.sessions.find(s => s.id === sessionId)
         
-// Delete from Firestore
+        // Delete from Firestore
         try {
           await deleteSession(sessionId)
         } catch (e) {
           logger.error('Failed to delete session from Firestore:', e)
         }
-        
+
         // If deleting the current session, logout the user completely
         if (sessionToDelete?.isCurrent) {
-          // Sign out from Firebase Auth
-          await signOutFromFirebaseAuth()
-          
           useAdminStore.getState().deactivateAdmin()
           set({ 
             user: null, 
