@@ -731,7 +731,7 @@ login: async (login: string, password: string) => {
         const STANDARD_USER_IDS = ['1', '2', '3', '4']
         const isStandardUser = signedInUserId ? STANDARD_USER_IDS.includes(signedInUserId) : false
 
-        if (isStandardUser) {
+        if (isStandardUser && signedInUserId) {
           logger.log('[login] Standard user, trying Firebase Auth for:', signedInUserId)
           firebaseAuthSuccess = await signInToFirebaseAuth(signedInUserId)
         } else {
