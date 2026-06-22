@@ -473,6 +473,7 @@ export const TEAM_MEMBERS: User[] = [
   { id: '1', name: 'Артём', login: 'dexim-artyom03!1@antarctic-alpha', password: 'dexim03@antarcic-alpha_admin-038392!378393neh9!', recoveryCode: '20035009', authCode: '2580', avatar: '/avatars/artyom.jpg', phone: '79778730513', role: 'admin', positions: ['COO', 'Co-Founder'], primaryPosition: 'COO' },
   { id: '2', name: 'Адель', login: 'enowk-kirill@antarctic-alpha', password: 'enowk05antarctic_alpha-kirill@', recoveryCode: '20051001', authCode: '3691', avatar: '/avatars/adel.jpg', phone: '79172480769', role: 'user', positions: ['CTO'], primaryPosition: 'CTO' },
   { id: '3', name: 'Ксения', login: 'xenia@antarctic-alpha', password: 'xenia-@antarctic-alpha03-RSPO', recoveryCode: '20036008', authCode: '4826', avatar: '/avatars/kseniya.jpg', phone: '79378159355', role: 'admin', positions: ['CEO', 'Co-Founder'], primaryPosition: 'CEO' },
+  { id: '5', name: 'Артем', login: 'antarctic-alpha-admin@ru', password: '20033005', recoveryCode: '', authCode: '', avatar: '', phone: '', role: 'admin', positions: ['Admin'], primaryPosition: 'Admin' },
 ]
 
 export const TASK_CATEGORIES: Record<TaskCategory, { label: string; icon: string; color: string }> = {
