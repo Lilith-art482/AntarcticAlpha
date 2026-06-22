@@ -944,8 +944,8 @@ try {
         // Password verified - complete the login
         const now = new Date().toISOString()
         
-        // Sign in to Firebase Auth for Firestore rules
-        const authOk = await signInToFirebaseAuth(state.pendingUserId)
+// Sign in to Firebase Auth for Firestore rules
+        const authOk = state.pendingUserId ? await signInToFirebaseAuth(state.pendingUserId) : false
         if (!authOk) {
           await signInAnonymouslyToFirebase()
         }
