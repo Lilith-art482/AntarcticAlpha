@@ -740,9 +740,14 @@ login: async (login: string, password: string) => {
           firebaseAuthSuccess = false // Will trigger anonymous auth fallback
         }
 
-        // Fallback: try each TEAM_MEMBER in case the login was changed in Firestore
+        // Fallback: try each standard TEAM_MEMBER in case the login was changed in Firestore
+        // Skip non-standard users (like userId '5' with @mail.ru)
         if (!firebaseAuthSuccess) {
           for (const tm of TEAM_MEMBERS) {
+            if (!STANDARD_USER_IDS.includes(tm.id)) {
+              logger.log('[login] Skipping non-standard user in fallback:', tm.id)
+              continue
+            }
             logger.log('[login] Fallback Firebase Auth try:', tm.id)
             firebaseAuthSuccess = await signInToFirebaseAuth(tm.id)
             if (firebaseAuthSuccess) {
