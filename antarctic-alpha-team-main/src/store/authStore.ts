@@ -98,7 +98,7 @@ const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
 }
 
 // Firebase Auth passwords (can be simple, they're just for Firestore rules)
-const FIREBASE_AUTH_PASSWORD = 'AntarcticAlpha2024!' // Same for all users
+// Теперь используется пароль из TEAM_MEMBERS для каждого пользователя
 
 // Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in
 const getUserIdByLoginOrPhone = (input: string): string | null => {
@@ -148,15 +148,23 @@ const signInToFirebaseAuth = async (userId: string): Promise<boolean> => {
     return false
   }
   
+  // Get the user's actual password from TEAM_MEMBERS
+  const teamMember = TEAM_MEMBERS.find(tm => tm.id === userId)
+  const password = teamMember?.password
+  if (!password) {
+    logger.warn('No password found in TEAM_MEMBERS for user:', userId)
+    return false
+  }
+  
   try {
-    await signInWithEmailAndPassword(auth, email, FIREBASE_AUTH_PASSWORD)
+    await signInWithEmailAndPassword(auth, email, password)
     logger.log('✅ Signed in to Firebase Auth as:', email)
     return true
   } catch (error: any) {
     if (error.code === 'auth/user-not-found') {
       logger.warn('Firebase Auth user not found:', email)
     } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-      logger.warn('Firebase Auth invalid credential for:', email, '- check that the password in Firebase Console matches FIREBASE_AUTH_PASSWORD')
+      logger.warn('Firebase Auth invalid credential for:', email, '- check that the password in Firebase Console matches TEAM_MEMBERS')
     } else {
       logger.error('Firebase Auth sign-in error:', error.code, error.message)
     }
@@ -706,9 +714,10 @@ login: async (login: string, password: string) => {
         const normalizedLogin = login.trim()
         const isPhoneNumber = /^[\d\+\-\(\)\s]+$/.test(normalizedLogin) && normalizedLogin.replace(/\D/g, '').length >= 10
         
-        // Validate login format - must be phone number or end with @antarctic-alpha
-        if (!isPhoneNumber && !normalizedLogin.endsWith('@antarctic-alpha')) {
-          logger.log('[login] Invalid login format - must be phone or @antarctic-alpha email')
+        // Validate login format - must be phone number, email, or end with @antarctic-alpha
+        const isEmailFormat = normalizedLogin.includes('@')
+        if (!isPhoneNumber && !isEmailFormat && !normalizedLogin.endsWith('@antarctic-alpha')) {
+          logger.log('[login] Invalid login format - must be phone, email, or @antarctic-alpha email')
           return { success: false }
         }
 
