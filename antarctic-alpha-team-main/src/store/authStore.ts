@@ -726,9 +726,18 @@ login: async (login: string, password: string) => {
         let signedInUserId: string | null = getUserIdByLoginOrPhone(normalizedLogin)
         let firebaseAuthSuccess = false
 
-        if (signedInUserId) {
-          logger.log('[login] Trying Firebase Auth for matched user:', signedInUserId)
+        // Only use Firebase Auth email/password for standard users (dexim, enowk, xenia, olga)
+        // For all other users (including new admins with @mail.ru), skip Firebase Auth
+        const STANDARD_USER_IDS = ['1', '2', '3', '4']
+        const isStandardUser = signedInUserId ? STANDARD_USER_IDS.includes(signedInUserId) : false
+
+        if (isStandardUser) {
+          logger.log('[login] Standard user, trying Firebase Auth for:', signedInUserId)
           firebaseAuthSuccess = await signInToFirebaseAuth(signedInUserId)
+        } else {
+          logger.log('[login] Non-standard user, skipping Firebase Auth email/password, will use anonymous auth')
+          // Skip Firebase Auth email/password, but anonymous auth will be used below
+          firebaseAuthSuccess = false // Will trigger anonymous auth fallback
         }
 
         // Fallback: try each TEAM_MEMBER in case the login was changed in Firestore
