@@ -31,7 +31,7 @@ const RatesBar = () => {
         { proName: 'BITSTAMP:ETHUSD', title: 'ETH/USD' },
         { proName: 'BINANCE:SOLUSDT', title: 'SOL/USDT' },
         { proName: 'BINANCE:BNBUSDT', title: 'BNB/USDT' },
-        { proName: 'OKX:TONUSDT', title: 'TON/USDT' },
+        { proName: 'OKX:GRAMUSDT', title: 'GRAM/USDT' },
         { proName: 'BINANCE:XRPUSDT', title: 'XRP/USDT' },
         { proName: 'FX_IDC:USDRUB', title: 'USD/RUB' },
         { proName: 'FX_IDC:EURRUB', title: 'EUR/RUB' },
