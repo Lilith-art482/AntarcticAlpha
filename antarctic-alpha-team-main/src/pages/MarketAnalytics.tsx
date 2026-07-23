@@ -13,97 +13,53 @@ import {
   TrendingUp
 } from 'lucide-react'
 
-// ─── Scrolling Ticker Tape with Live Prices ────────────────────────────────────
-const TICKER_ITEMS = [
-  { symbol: 'BINANCE:BTCUSDT', title: 'BTC', color: '#F7931A', coingeckoId: 'bitcoin' },
-  { symbol: 'BINANCE:ETHUSDT', title: 'ETH', color: '#627EEA', coingeckoId: 'ethereum' },
-  { symbol: 'BINANCE:SOLUSDT', title: 'SOL', color: '#9945FF', coingeckoId: 'solana' },
-  { symbol: 'BINANCE:BNBUSDT', title: 'BNB', color: '#F3BA2F', coingeckoId: 'binancecoin' },
-  { symbol: 'BINANCE:GRAMUSDT', title: 'GRAM', color: '#0098EA', coingeckoId: 'the-open-network' },
-  { symbol: 'BINANCE:XRPUSDT', title: 'XRP', color: '#00AAE4', coingeckoId: 'ripple' },
-  { symbol: 'BINANCE:DOGEUSDT', title: 'DOGE', color: '#C2A633', coingeckoId: 'dogecoin' },
-  { symbol: 'BINANCE:ADAUSDT', title: 'ADA', color: '#0033AD', coingeckoId: 'cardano' },
-  { symbol: 'BINANCE:AVAXUSDT', title: 'AVAX', color: '#E84142', coingeckoId: 'avalanche-2' },
-]
-
-const ScrollingTickerTape = memo(({ selectedSymbol, onSelect }: {
-  selectedSymbol: string
-  onSelect: (symbol: string) => void
-}) => {
+// ─── TradingView Ticker Tape Widget (original iframe) ──────────────────────────
+const TradingViewTickerTape = memo(() => {
+  const container = useRef<HTMLDivElement>(null)
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
-  const [prices, setPrices] = useState<Record<string, { usd: number; usd_24h_change: number }>>({})
 
   useEffect(() => {
-    const ids = TICKER_ITEMS.map(i => i.coingeckoId).join(',')
-    const fetchPrices = async () => {
-      try {
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
-        )
-        const data = await res.json()
-        setPrices(data)
-      } catch (e) {
-        console.error('Failed to fetch prices:', e)
+    if (!container.current) return
+    container.current.innerHTML = ''
+
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbols: [
+        { proName: 'BINANCE:BTCUSDT', title: 'BTC' },
+        { proName: 'BINANCE:ETHUSDT', title: 'ETH' },
+        { proName: 'BINANCE:SOLUSDT', title: 'SOL' },
+        { proName: 'BINANCE:BNBUSDT', title: 'BNB' },
+        { proName: 'BINANCE:GRAMUSDT', title: 'GRAM' },
+        { proName: 'BINANCE:XRPUSDT', title: 'XRP' },
+        { proName: 'BINANCE:DOGEUSDT', title: 'DOGE' },
+        { proName: 'BINANCE:ADAUSDT', title: 'ADA' },
+        { proName: 'BINANCE:AVAXUSDT', title: 'AVAX' }
+      ],
+      showSymbolLogo: true,
+      isTransparent: true,
+      displayMode: 'compact',
+      colorTheme: isDark ? 'dark' : 'light',
+      locale: 'ru'
+    })
+    container.current.appendChild(script)
+
+    return () => {
+      if (container.current) {
+        container.current.innerHTML = ''
       }
     }
-
-    fetchPrices()
-    const interval = setInterval(fetchPrices, 30000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const formatPrice = (price: number) => {
-    if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 })
-    if (price >= 1) return price.toFixed(2)
-    return price.toFixed(4)
-  }
-
-  const tickerContent = TICKER_ITEMS.map((item) => {
-    const price = prices[item.coingeckoId]
-    const isSelected = selectedSymbol === item.symbol
-    const change = price?.usd_24h_change
-    const isUp = change && change > 0
-
-    return (
-      <button
-        key={item.symbol}
-        onClick={() => onSelect(item.symbol)}
-        className={`flex items-center gap-2 px-4 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-          isSelected
-            ? 'bg-[#4C7F6E]/20 text-[#4C7F6E] border border-[#4C7F6E]/30'
-            : isDark
-              ? 'bg-white/5 text-gray-300 border border-transparent hover:bg-white/10 hover:text-white'
-              : 'bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200 hover:text-gray-900'
-        }`}
-      >
-        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-        <span>{item.title}</span>
-        {price && (
-          <>
-            <span className="text-gray-500">${formatPrice(price.usd)}</span>
-            {change !== undefined && change !== null && (
-              <span className={isUp ? 'text-emerald-400' : 'text-red-400'}>
-                {isUp ? '+' : ''}{change.toFixed(2)}%
-              </span>
-            )}
-          </>
-        )}
-      </button>
-    )
-  })
+  }, [isDark])
 
   return (
-    <div className="relative overflow-hidden py-2.5">
-      <div className="flex gap-3 animate-marquee">
-        {tickerContent}
-        {tickerContent}
-      </div>
-    </div>
+    <div ref={container} style={{ height: '46px', width: '100%' }} />
   )
 })
 
-ScrollingTickerTape.displayName = 'ScrollingTickerTape'
+TradingViewTickerTape.displayName = 'TradingViewTickerTape'
 
 // ─── TradingView Advanced Chart Widget (iframe-based with drawing tools) ────────
 const TradingViewWidget = memo(({ symbol }: { symbol: string }) => {
@@ -436,10 +392,6 @@ export const MarketAnalytics = () => {
   const bgColor = isDark ? 'bg-[#07090f]' : 'bg-gray-50'
   const borderColor = isDark ? 'border-white/10' : 'border-gray-200'
 
-  const gridPattern = isDark
-    ? 'bg-[linear-gradient(rgba(78,110,73,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(78,110,73,0.08)_1px,transparent_1px)]'
-    : 'bg-[linear-gradient(rgba(78,110,73,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(78,110,73,0.06)_1px,transparent_1px)]'
-
   const handleTabChange = useCallback((id: string) => {
     setActiveTab(id)
   }, [])
@@ -451,12 +403,12 @@ export const MarketAnalytics = () => {
 
   // Tab configurations
   const tabs = [
-    { id: 'chart', label: 'График', icon: LineChart, color: 'from-emerald-400 via-teal-500 to-cyan-400' },
-    { id: 'crypto', label: 'Крипто', icon: Coins, color: 'from-amber-400 via-orange-500 to-yellow-400' },
-    { id: 'stocks', label: 'Акции', icon: Building2, color: 'from-blue-400 via-indigo-500 to-cyan-400' },
-    { id: 'heatmap', label: 'Тепловая карта', icon: Flame, color: 'from-rose-400 via-red-500 to-orange-400' },
-    { id: 'news', label: 'Новости', icon: Newspaper, color: 'from-purple-400 via-violet-500 to-indigo-400' },
-    { id: 'calendar', label: 'Календарь', icon: CalendarDays, color: 'from-sky-400 via-blue-500 to-indigo-400' },
+    { id: 'chart', label: 'График', icon: LineChart },
+    { id: 'crypto', label: 'Крипто', icon: Coins },
+    { id: 'stocks', label: 'Акции', icon: Building2 },
+    { id: 'heatmap', label: 'Тепловая карта', icon: Flame },
+    { id: 'news', label: 'Новости', icon: Newspaper },
+    { id: 'calendar', label: 'Календарь', icon: CalendarDays },
   ]
 
   const faqItems = [
@@ -483,11 +435,8 @@ export const MarketAnalytics = () => {
   ]
 
   return (
-    <div className={`flex min-h-screen ${bgColor}`}>
-      {/* ── Grid Pattern Background ── */}
-      <div className={`fixed inset-0 pointer-events-none ${gridPattern} [background-size:40px_40px] z-0`} />
-
-      <div className="w-full relative z-10 space-y-6 p-4 md:p-6">
+    <div className={`flex flex-col h-screen ${bgColor} overflow-hidden`}>
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-4 md:pt-6 pb-6 space-y-4">
         {/* ── Header ── */}
         <div className="flex items-center gap-4">
           <div className="p-3 bg-[#4C7F6E]/10 rounded-2xl border border-[#4C7F6E]/20">
@@ -505,12 +454,12 @@ export const MarketAnalytics = () => {
 
         {/* ── Ticker Tape ── */}
         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-          <ScrollingTickerTape selectedSymbol={selectedSymbol} onSelect={handleSymbolSelect} />
+          <TradingViewTickerTape />
         </div>
 
         {/* ── Tabs Navigation ── */}
         <div className={`flex flex-wrap items-center gap-2 p-2 rounded-2xl border ${
-          isDark ? 'bg-[#0b1015]/80 border-white/5 backdrop-blur-xl' : 'bg-white/80 border-gray-100 backdrop-blur-xl shadow-sm'
+          isDark ? 'bg-[#0b1015]/80 border-white/5' : 'bg-white/80 border-gray-100 shadow-sm'
         }`}>
           {tabs.map((tab) => {
             const Icon = tab.icon
@@ -542,7 +491,7 @@ export const MarketAnalytics = () => {
           {/* Chart Tab */}
           {activeTab === 'chart' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
                 <TradingViewWidget symbol={selectedSymbol} />
               </div>
             </div>
@@ -551,7 +500,7 @@ export const MarketAnalytics = () => {
           {/* Crypto Tab */}
           {activeTab === 'crypto' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
                 <TradingViewCryptoScreenerWidget />
               </div>
             </div>
@@ -560,7 +509,7 @@ export const MarketAnalytics = () => {
           {/* Stocks Tab */}
           {activeTab === 'stocks' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
                 <TradingViewStockHeatmapWidget />
               </div>
             </div>
@@ -568,7 +517,7 @@ export const MarketAnalytics = () => {
 
           {/* Heatmap Tab */}
           {activeTab === 'heatmap' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
                 <div className="p-4 border-b border-white/5">
                   <div className="flex items-center gap-2">
@@ -576,7 +525,7 @@ export const MarketAnalytics = () => {
                     <span className={`text-sm font-bold ${headingColor}`}>Crypto Heatmap</span>
                   </div>
                 </div>
-                <div className="h-[calc(100vh-420px)] min-h-[400px]">
+                <div style={{ height: 'calc(100vh - 380px)', minHeight: '350px' }}>
                   <TradingViewCryptoHeatmapWidget />
                 </div>
               </div>
@@ -588,7 +537,7 @@ export const MarketAnalytics = () => {
                     <span className={`text-sm font-bold ${headingColor}`}>Stock Heatmap</span>
                   </div>
                 </div>
-                <div className="h-[calc(100vh-420px)] min-h-[400px]">
+                <div style={{ height: 'calc(100vh - 380px)', minHeight: '350px' }}>
                   <TradingViewStockHeatmapWidget />
                 </div>
               </div>
@@ -598,7 +547,7 @@ export const MarketAnalytics = () => {
           {/* News Tab */}
           {activeTab === 'news' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
                 <TradingViewNewsWidget />
               </div>
             </div>
@@ -607,7 +556,7 @@ export const MarketAnalytics = () => {
           {/* Calendar Tab */}
           {activeTab === 'calendar' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
                 <TradingViewEventsWidget />
               </div>
             </div>
