@@ -1,16 +1,67 @@
-import { useEffect, useRef, memo, useState } from 'react'
+import { useEffect, useRef, memo, useState, useCallback } from 'react'
 import { useThemeStore } from '@/store/themeStore'
-import { 
-  LineChart, 
+import {
+  LineChart,
   Flame,
   Building2,
   Coins,
   Newspaper,
   CalendarDays,
-  ChevronDown
+  ChevronDown,
+  ExternalLink,
+  BarChart3,
+  TrendingUp,
+  Sparkles
 } from 'lucide-react'
 
-// TradingView Widget Component (iframe-based with drawing tools)
+// ─── TradingView Ticker Tape Widget ────────────────────────────────────────────
+const TradingViewTickerTape = memo(() => {
+  const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
+
+  useEffect(() => {
+    if (!container.current) return
+    container.current.innerHTML = ''
+
+    const script = document.createElement('script')
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js'
+    script.type = 'text/javascript'
+    script.async = true
+    script.innerHTML = JSON.stringify({
+      symbols: [
+        { proName: 'BINANCE:BTCUSDT', title: 'BTC' },
+        { proName: 'BINANCE:ETHUSDT', title: 'ETH' },
+        { proName: 'BINANCE:SOLUSDT', title: 'SOL' },
+        { proName: 'BINANCE:BNBUSDT', title: 'BNB' },
+        { proName: 'BINANCE:XRPUSDT', title: 'XRP' },
+        { proName: 'BINANCE:DOGEUSDT', title: 'DOGE' },
+        { proName: 'BINANCE:ADAUSDT', title: 'ADA' },
+        { proName: 'BINANCE:AVAXUSDT', title: 'AVAX' }
+      ],
+      showSymbolLogo: true,
+      isTransparent: true,
+      displayMode: 'compact',
+      colorTheme: isDark ? 'dark' : 'light',
+      locale: 'ru'
+    })
+    container.current.appendChild(script)
+
+    return () => {
+      if (container.current) {
+        container.current.innerHTML = ''
+      }
+    }
+  }, [isDark])
+
+  return (
+    <div ref={container} style={{ height: '46px', width: '100%' }} />
+  )
+})
+
+TradingViewTickerTape.displayName = 'TradingViewTickerTape'
+
+// ─── TradingView Advanced Chart Widget (iframe-based with drawing tools) ────────
 const TradingViewWidget = memo(() => {
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
@@ -47,14 +98,14 @@ const TradingViewWidget = memo(() => {
 
 TradingViewWidget.displayName = 'TradingViewWidget'
 
-// TradingView News Widget Component
+// ─── TradingView News Widget ────────────────────────────────────────────────────
 const TradingViewNewsWidget = memo(() => {
   const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!container.current) return
-
-    // Clear any existing widgets
     container.current.innerHTML = ''
 
     const script = document.createElement('script')
@@ -64,7 +115,7 @@ const TradingViewNewsWidget = memo(() => {
     script.innerHTML = JSON.stringify({
       displayMode: 'regular',
       feedMode: 'all_symbols',
-      colorTheme: 'dark',
+      colorTheme: isDark ? 'dark' : 'light',
       isTransparent: false,
       locale: 'ru',
       autosize: true
@@ -76,41 +127,32 @@ const TradingViewNewsWidget = memo(() => {
         container.current.innerHTML = ''
       }
     }
-  }, [])
+  }, [isDark])
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
+    <div
+      className="tradingview-widget-container"
+      ref={container}
       style={{ height: '100%', width: '100%' }}
     >
-      <div 
-        className="tradingview-widget-container__widget" 
+      <div
+        className="tradingview-widget-container__widget"
         style={{ height: '100%', width: '100%' }}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/news/top-providers/tradingview/" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
 
 TradingViewNewsWidget.displayName = 'TradingViewNewsWidget'
 
-// TradingView Economic Calendar Widget Component
+// ─── TradingView Economic Calendar Widget ───────────────────────────────────────
 const TradingViewEventsWidget = memo(() => {
   const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!container.current) return
-
-    // Clear any existing widgets
     container.current.innerHTML = ''
 
     const script = document.createElement('script')
@@ -118,7 +160,7 @@ const TradingViewEventsWidget = memo(() => {
     script.type = 'text/javascript'
     script.async = true
     script.innerHTML = JSON.stringify({
-      colorTheme: 'dark',
+      colorTheme: isDark ? 'dark' : 'light',
       isTransparent: false,
       locale: 'ru',
       countryFilter: 'ar,au,br,ca,cn,fr,de,in,id,it,jp,kr,mx,ru,sa,za,tr,gb,us,eu',
@@ -132,41 +174,32 @@ const TradingViewEventsWidget = memo(() => {
         container.current.innerHTML = ''
       }
     }
-  }, [])
+  }, [isDark])
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
+    <div
+      className="tradingview-widget-container"
+      ref={container}
       style={{ height: '100%', width: '100%' }}
     >
-      <div 
-        className="tradingview-widget-container__widget" 
+      <div
+        className="tradingview-widget-container__widget"
         style={{ height: '100%', width: '100%' }}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/economic-calendar/" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
 
 TradingViewEventsWidget.displayName = 'TradingViewEventsWidget'
 
-// TradingView Crypto Market Screener Widget Component
+// ─── TradingView Crypto Screener Widget ─────────────────────────────────────────
 const TradingViewCryptoScreenerWidget = memo(() => {
   const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!container.current) return
-
-    // Clear any existing widgets
     container.current.innerHTML = ''
 
     const script = document.createElement('script')
@@ -177,7 +210,7 @@ const TradingViewCryptoScreenerWidget = memo(() => {
       defaultColumn: 'moving_averages',
       screener_type: 'crypto_mkt',
       displayCurrency: 'USD',
-      colorTheme: 'dark',
+      colorTheme: isDark ? 'dark' : 'light',
       isTransparent: false,
       locale: 'ru',
       autosize: true
@@ -189,41 +222,32 @@ const TradingViewCryptoScreenerWidget = memo(() => {
         container.current.innerHTML = ''
       }
     }
-  }, [])
+  }, [isDark])
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
+    <div
+      className="tradingview-widget-container"
+      ref={container}
       style={{ height: '100%', width: '100%' }}
     >
-      <div 
-        className="tradingview-widget-container__widget" 
+      <div
+        className="tradingview-widget-container__widget"
         style={{ height: '100%', width: '100%' }}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/markets/cryptocurrencies/prices-all/" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
 
 TradingViewCryptoScreenerWidget.displayName = 'TradingViewCryptoScreenerWidget'
 
-// TradingView Crypto Heatmap Widget Component
+// ─── TradingView Crypto Heatmap Widget ──────────────────────────────────────────
 const TradingViewCryptoHeatmapWidget = memo(() => {
   const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!container.current) return
-
-    // Clear any existing widgets
     container.current.innerHTML = ''
 
     const script = document.createElement('script')
@@ -236,7 +260,7 @@ const TradingViewCryptoHeatmapWidget = memo(() => {
       blockColor: '24h_close_change|5',
       locale: 'ru',
       symbolUrl: '',
-      colorTheme: 'dark',
+      colorTheme: isDark ? 'dark' : 'light',
       hasTopBar: false,
       isDataSetEnabled: false,
       isZoomEnabled: true,
@@ -251,41 +275,32 @@ const TradingViewCryptoHeatmapWidget = memo(() => {
         container.current.innerHTML = ''
       }
     }
-  }, [])
+  }, [isDark])
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
+    <div
+      className="tradingview-widget-container"
+      ref={container}
       style={{ height: '100%', width: '100%' }}
     >
-      <div 
-        className="tradingview-widget-container__widget" 
+      <div
+        className="tradingview-widget-container__widget"
         style={{ height: '100%', width: '100%' }}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/heatmap/crypto/" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
 
 TradingViewCryptoHeatmapWidget.displayName = 'TradingViewCryptoHeatmapWidget'
 
-// TradingView Stock Heatmap Widget Component
+// ─── TradingView Stock Heatmap Widget ───────────────────────────────────────────
 const TradingViewStockHeatmapWidget = memo(() => {
   const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
   useEffect(() => {
     if (!container.current) return
-
-    // Clear any existing widgets
     container.current.innerHTML = ''
 
     const script = document.createElement('script')
@@ -299,7 +314,7 @@ const TradingViewStockHeatmapWidget = memo(() => {
       grouping: 'sector',
       locale: 'ru',
       symbolUrl: '',
-      colorTheme: 'dark',
+      colorTheme: isDark ? 'dark' : 'light',
       exchanges: [],
       hasTopBar: false,
       isDataSetEnabled: false,
@@ -315,250 +330,332 @@ const TradingViewStockHeatmapWidget = memo(() => {
         container.current.innerHTML = ''
       }
     }
-  }, [])
+  }, [isDark])
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
+    <div
+      className="tradingview-widget-container"
+      ref={container}
       style={{ height: '100%', width: '100%' }}
     >
-      <div 
-        className="tradingview-widget-container__widget" 
+      <div
+        className="tradingview-widget-container__widget"
         style={{ height: '100%', width: '100%' }}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/heatmap/stock/" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
 
 TradingViewStockHeatmapWidget.displayName = 'TradingViewStockHeatmapWidget'
 
+// ─── Premium FAQ Item Component ─────────────────────────────────────────────────
+const FAQItem = memo(({ icon: Icon, question, answer, isDark, textColor, subTextColor }: {
+  icon: React.ElementType
+  question: string
+  answer: string
+  isDark: boolean
+  textColor: string
+  subTextColor: string
+}) => (
+  <details className="group">
+    <summary className={`flex items-center justify-between cursor-pointer p-4 rounded-2xl transition-all duration-300 ${
+      isDark ? 'hover:bg-white/5 active:bg-white/8' : 'hover:bg-gray-50 active:bg-gray-100'
+    }`}>
+      <div className="flex items-center gap-3">
+        <div className={`p-2 rounded-xl transition-colors duration-300 ${
+          isDark ? 'bg-[#4C7F6E]/10 group-hover:bg-[#4C7F6E]/20' : 'bg-[#4C7F6E]/10 group-hover:bg-[#4C7F6E]/15'
+        }`}>
+          <Icon className="w-4 h-4 text-[#4C7F6E]" />
+        </div>
+        <span className={`text-sm font-semibold ${textColor}`}>{question}</span>
+      </div>
+      <ChevronDown className={`w-4 h-4 ${subTextColor} group-open:rotate-180 transition-transform duration-300`} />
+    </summary>
+    <div className={`px-4 pb-4 ml-11 text-sm leading-relaxed ${subTextColor}`}>
+      {answer}
+    </div>
+  </details>
+))
+
+FAQItem.displayName = 'FAQItem'
+
+// ─── Main Page Component ────────────────────────────────────────────────────────
 export const MarketAnalytics = () => {
   const { theme } = useThemeStore()
   const [activeTab, setActiveTab] = useState('chart')
 
   const isDark = theme === 'dark'
-  const textColor = isDark ? 'text-white' : 'text-gray-900'
-  const subTextColor = isDark ? 'text-gray-400' : 'text-gray-600'
-  const cardBg = isDark ? 'bg-[#131722]' : 'bg-white'
-  const bgColor = isDark ? 'bg-[#131722]' : 'bg-gray-50'
-  const borderColor = isDark ? 'border-[#2a2e39]' : 'border-gray-200'
+  const headingColor = isDark ? 'text-white' : 'text-gray-900'
+  const subHeadingColor = isDark ? 'text-gray-400' : 'text-gray-500'
+  const cardBg = isDark ? 'bg-[#0b1015] border-white/5' : 'bg-white border-gray-100'
+  const bgColor = isDark ? 'bg-[#07090f]' : 'bg-gray-50'
+  const borderColor = isDark ? 'border-white/10' : 'border-gray-200'
 
-  // Brand colors
-  const brandPrimary = '#4C7F6E'
-  const brandSecondary = '#4E6E49'
+  const handleTabChange = useCallback((id: string) => {
+    setActiveTab(id)
+  }, [])
 
   // Tab configurations
   const tabs = [
-    { id: 'chart', label: 'График', icon: LineChart },
-    { id: 'crypto', label: 'Крипто', icon: Coins },
-    { id: 'stocks', label: 'Акции', icon: Building2 },
-    { id: 'heatmap', label: 'Тепловая карта', icon: Flame },
-    { id: 'news', label: 'Новости', icon: Newspaper },
-    { id: 'calendar', label: 'Календарь', icon: CalendarDays },
+    { id: 'chart', label: 'График', icon: LineChart, color: 'from-emerald-400 via-teal-500 to-cyan-400' },
+    { id: 'crypto', label: 'Крипто', icon: Coins, color: 'from-amber-400 via-orange-500 to-yellow-400' },
+    { id: 'stocks', label: 'Акции', icon: Building2, color: 'from-blue-400 via-indigo-500 to-cyan-400' },
+    { id: 'heatmap', label: 'Тепловая карта', icon: Flame, color: 'from-rose-400 via-red-500 to-orange-400' },
+    { id: 'news', label: 'Новости', icon: Newspaper, color: 'from-purple-400 via-violet-500 to-indigo-400' },
+    { id: 'calendar', label: 'Календарь', icon: CalendarDays, color: 'from-sky-400 via-blue-500 to-indigo-400' },
+  ]
+
+  const faqItems = [
+    {
+      icon: LineChart,
+      question: 'Как использовать графики TradingView?',
+      answer: 'Превратите хаос котировок в понятную карту: используйте график как полноценный скальпель трейдера. Стройте уровни поддержки/сопротивления, растягивайте сетку Фибоначчи для поиска точек входа и фиксируйте тренды с помощью трендовых линий — весь набор профессиональных инструментов всегда под рукой для вашего торгового анализа.'
+    },
+    {
+      icon: Coins,
+      question: 'Где найти данные по криптовалютам?',
+      answer: 'Раздел "Крипто" содержит скринер криптовалют с реальными котировками с ведущих бирж по техническому анализу и ценой, а еще рекомендациями (не ИИР) по покупке/продаже.'
+    },
+    {
+      icon: Flame,
+      question: 'Что показывает тепловая карта?',
+      answer: 'Тепловая карта визуализирует изменения цен активов. Размер блока соответствует рыночной капитализации, цвет показывает изменение цены (зеленый — рост, красный — падение). Идеально для быстрого обзора рыночного настроения.'
+    },
+    {
+      icon: CalendarDays,
+      question: 'Как использовать экономический календарь?',
+      answer: 'Экономический календарь показывает важные события, такие как решения по ставкам ЦБ, отчеты компаний и макроэкономические данные. Фильтруйте события по важности и стране для планирования торговли.'
+    }
   ]
 
   return (
-    <div className={`min-h-screen ${bgColor} pb-6`}>
-      {/* Header - Clean & Minimal */}
-      <div className="px-4 lg:px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className={`text-xl font-semibold ${textColor}`}>
-              Market Analytics
-            </h1>
-          </div>
-        </div>
+    <div className={`min-h-screen ${bgColor} pb-20`}>
+      {/* ── Decorative Background Blurs ── */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#4C7F6E]/5 blur-[120px] rounded-full" />
+        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] bg-blue-500/5 blur-[100px] rounded-full" />
+        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-500/3 blur-[80px] rounded-full" />
       </div>
 
-      {/* Tabs Navigation - TradingView Style */}
-      <div className="px-4 lg:px-6 mb-4">
-        <div className={`flex items-center gap-1 ${isDark ? 'bg-[#131722]' : 'bg-white'} p-1 rounded-lg`}>
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            const isActive = activeTab === tab.id
-            
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-medium ${
-                  isActive
-                    ? 'text-white shadow-lg'
-                    : `${subTextColor} hover:${textColor}`
-                }`}
-                style={{
-                  background: isActive ? `linear-gradient(to right, ${brandPrimary}, ${brandSecondary})` : 'transparent'
-                }}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-200">
-        {/* Chart Tab */}
-        {activeTab === 'chart' && (
-          <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-            <div className="h-[700px] lg:h-[800px]">
-              <TradingViewWidget />
-            </div>
-          </div>
-        )}
-
-        {/* Crypto Tab */}
-        {activeTab === 'crypto' && (
-          <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-            <div className="h-[750px] lg:h-[850px]">
-              <TradingViewCryptoScreenerWidget />
-            </div>
-          </div>
-        )}
-
-        {/* Stocks Tab */}
-        {activeTab === 'stocks' && (
-          <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-            <div className="h-[700px] lg:h-[800px]">
-              <TradingViewStockHeatmapWidget />
-            </div>
-          </div>
-        )}
-
-        {/* Heatmap Tab */}
-        {activeTab === 'heatmap' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[500px]">
-                <TradingViewCryptoHeatmapWidget />
+      <div className="relative z-10">
+        {/* ── Header ── */}
+        <div className="px-4 lg:px-8 pt-6 pb-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-[#4C7F6E] to-[#4E6E49] rounded-2xl shadow-lg shadow-[#4C7F6E]/20">
+                <BarChart3 className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${headingColor}`}>
+                  Market Analytics
+                </h1>
+                <p className={`text-sm font-medium ${subHeadingColor} mt-0.5`}>
+                  Профессиональные инструменты для трейдинга
+                </p>
               </div>
             </div>
-            
-            <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div className="h-[500px]">
+            <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border ${
+              isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'
+            }`}>
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className={`text-xs font-semibold ${subHeadingColor}`}>Live Data</span>
+              <Sparkles className="w-3.5 h-3.5 text-[#4C7F6E]" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Ticker Tape ── */}
+        <div className={`mx-4 lg:mx-8 mb-6 rounded-2xl border overflow-hidden ${
+          isDark ? 'bg-[#0b1015] border-white/5' : 'bg-white border-gray-100'
+        } shadow-lg`}>
+          <TradingViewTickerTape />
+        </div>
+
+        {/* ── Tabs Navigation ── */}
+        <div className="px-4 lg:px-8 mb-6">
+          <div className={`flex flex-wrap items-center gap-2 p-2 rounded-2xl border ${
+            isDark ? 'bg-[#0b1015]/80 border-white/5 backdrop-blur-xl' : 'bg-white/80 border-gray-100 backdrop-blur-xl shadow-sm'
+          }`}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    isActive
+                      ? 'text-white shadow-lg scale-[1.02]'
+                      : `${subHeadingColor} hover:${headingColor} hover:bg-white/5`
+                  }`}
+                  style={isActive ? {
+                    background: `linear-gradient(135deg, var(--brand), var(--brand-strong))`,
+                    boxShadow: '0 8px 24px rgba(78, 110, 73, 0.35)'
+                  } : undefined}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* ── Tab Content ── */}
+        <div className="px-4 lg:px-8 animate-fade-in">
+          {/* Chart Tab */}
+          {activeTab === 'chart' && (
+            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#4E6E49]/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
+              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+                <TradingViewWidget />
+              </div>
+            </div>
+          )}
+
+          {/* Crypto Tab */}
+          {activeTab === 'crypto' && (
+            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
+              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+                <TradingViewCryptoScreenerWidget />
+              </div>
+            </div>
+          )}
+
+          {/* Stocks Tab */}
+          {activeTab === 'stocks' && (
+            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
+              <div className="h-[calc(100vh-340px)] min-h-[500px]">
                 <TradingViewStockHeatmapWidget />
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* News Tab */}
-        {activeTab === 'news' && (
-          <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-            <div className="h-[650px] lg:h-[750px]">
-              <TradingViewNewsWidget />
+          {/* Heatmap Tab */}
+          {activeTab === 'heatmap' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+                <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/5 blur-3xl rounded-full -mr-24 -mt-24 pointer-events-none" />
+                <div className="p-4 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-[#4C7F6E]" />
+                    <span className={`text-sm font-bold ${headingColor}`}>Crypto Heatmap</span>
+                  </div>
+                </div>
+                <div className="h-[calc(100vh-440px)] min-h-[400px]">
+                  <TradingViewCryptoHeatmapWidget />
+                </div>
+              </div>
+
+              <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-3xl rounded-full -mr-24 -mt-24 pointer-events-none" />
+                <div className="p-4 border-b border-white/5">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#4C7F6E]" />
+                    <span className={`text-sm font-bold ${headingColor}`}>Stock Heatmap</span>
+                  </div>
+                </div>
+                <div className="h-[calc(100vh-440px)] min-h-[400px]">
+                  <TradingViewStockHeatmapWidget />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Calendar Tab */}
-        {activeTab === 'calendar' && (
-          <div className={`rounded-lg border ${borderColor} ${cardBg} overflow-hidden`}>
-            <div className="h-[650px] lg:h-[750px]">
-              <TradingViewEventsWidget />
+          {/* News Tab */}
+          {activeTab === 'news' && (
+            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
+              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+                <TradingViewNewsWidget />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* FAQ Section */}
-      <div className="px-4 lg:px-6 mt-6 mb-6">
-        <div className={`rounded-lg border ${borderColor} ${cardBg}`}>
-          <div className="p-6">
-            <h3 className={`text-lg font-semibold ${textColor} mb-4`}>
-              Часто задаваемые вопросы
-            </h3>
-            <div className="space-y-3">
-              <details className="group">
-                <summary className={`flex items-center justify-between cursor-pointer p-3 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
-                  <div className="flex items-center gap-3">
-                    <LineChart className={`w-4 h-4 ${subTextColor}`} />
-                    <span className={`text-sm font-medium ${textColor}`}>Как использовать графики TradingView?</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 ${subTextColor} group-open:rotate-180 transition-transform`} />
-                </summary>
-                <div className={`px-4 pb-4 text-sm ${subTextColor}`}>
-                  Графики TradingView позволяют анализировать рынки с помощью технических индикаторов7 Используйте панель инструментов сверху для доступа к функциям, совсем скоро мы добавим про-чарты для полноценных инструментов.
+          {/* Calendar Tab */}
+          {activeTab === 'calendar' && (
+            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+              <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
+              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+                <TradingViewEventsWidget />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── FAQ Section ── */}
+        <div className="px-4 lg:px-8 mt-8">
+          <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+            <div className="absolute top-0 left-0 w-48 h-48 bg-[#4C7F6E]/5 blur-3xl rounded-full -ml-24 -mt-24 pointer-events-none" />
+            <div className="relative p-6 lg:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-[#4C7F6E]/10">
+                  <TrendingUp className="w-5 h-5 text-[#4C7F6E]" />
                 </div>
-              </details>
-              
-              <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
-              
-              <details className="group">
-                <summary className={`flex items-center justify-between cursor-pointer p-3 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
-                  <div className="flex items-center gap-3">
-                    <Coins className={`w-4 h-4 ${subTextColor}`} />
-                    <span className={`text-sm font-medium ${textColor}`}>Где найти данные по криптовалютам?</span>
+                <h3 className={`text-lg font-bold ${headingColor}`}>
+                  Часто задаваемые вопросы
+                </h3>
+              </div>
+              <div className="space-y-2">
+                {faqItems.map((item, index) => (
+                  <div key={index}>
+                    <FAQItem
+                      icon={item.icon}
+                      question={item.question}
+                      answer={item.answer}
+                      isDark={isDark}
+                      textColor={headingColor}
+                      subTextColor={subHeadingColor}
+                    />
+                    {index < faqItems.length - 1 && (
+                      <div className={`h-px mx-4 ${isDark ? 'bg-white/5' : 'bg-gray-100'}`} />
+                    )}
                   </div>
-                  <ChevronDown className={`w-4 h-4 ${subTextColor} group-open:rotate-180 transition-transform`} />
-                </summary>
-                <div className={`px-4 pb-4 text-sm ${subTextColor}`}>
-                  Раздел "Крипто" содержит скринер криптовалют с реальными котировками с ведущих бирж по техническому анализу и ценой, а еще рекомендациями (не ИИР) по покупке/продаже.
-                </div>
-              </details>
-              
-              <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
-              
-              <details className="group">
-                <summary className={`flex items-center justify-between cursor-pointer p-3 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
-                  <div className="flex items-center gap-3">
-                    <Flame className={`w-4 h-4 ${subTextColor}`} />
-                    <span className={`text-sm font-medium ${textColor}`}>Что показывает тепловая карта?</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 ${subTextColor} group-open:rotate-180 transition-transform`} />
-                </summary>
-                <div className={`px-4 pb-4 text-sm ${subTextColor}`}>
-                  Тепловая карта визуализирует изменения цен активов. Размер блока соответствует рыночной капитализации, цвет показывает изменение цены (зеленый — рост, красный — падение).
-                </div>
-              </details>
-              
-              <div className={`h-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
-              
-              <details className="group">
-                <summary className={`flex items-center justify-between cursor-pointer p-3 rounded-lg ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className={`w-4 h-4 ${subTextColor}`} />
-                    <span className={`text-sm font-medium ${textColor}`}>Как использовать экономический календарь?</span>
-                  </div>
-                  <ChevronDown className={`w-4 h-4 ${subTextColor} group-open:rotate-180 transition-transform`} />
-                </summary>
-                <div className={`px-4 pb-4 text-sm ${subTextColor}`}>
-                  Экономический календарь показывает важные события, такие как решения по ставкам ЦБ, отчеты компаний и макроэкономические данные. Фильтруйте события по важности и стране.
-                </div>
-              </details>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Quick Links */}
-      <div className="px-4 lg:px-6 mb-6">
-        <div className={`flex items-center justify-between p-4 rounded-lg border ${borderColor} ${cardBg}`}>
-          <div className="flex items-center gap-6">
-            <a href="https://www.tradingview.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group">
-              <span className={`text-sm font-medium ${subTextColor} group-hover:${textColor} transition-colors`}>TradingView</span>
-            </a>
-            <a href="https://www.coingecko.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group">
-              <span className={`text-sm font-medium ${subTextColor} group-hover:${textColor} transition-colors`}>CoinGecko</span>
-            </a>
-            <a href="https://finance.yahoo.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 group">
-              <span className={`text-sm font-medium ${subTextColor} group-hover:${textColor} transition-colors`}>Yahoo Finance</span>
-            </a>
-          </div>
-          <div className={`text-xs ${subTextColor}`}>
-            Data provided by TradingView
+        {/* ── Quick Links ── */}
+        <div className="px-4 lg:px-8 mt-6 mb-8">
+          <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
+            <div className="p-5 lg:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  {[
+                    { name: 'TradingView', url: 'https://www.tradingview.com', icon: LineChart },
+                    { name: 'CoinGecko', url: 'https://www.coingecko.com', icon: Coins },
+                    { name: 'Yahoo Finance', url: 'https://finance.yahoo.com', icon: Building2 }
+                  ].map((link) => (
+                    <a
+                      key={link.name}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] ${
+                        isDark
+                          ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
+                          : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300 hover:shadow-md'
+                      }`}
+                    >
+                      <link.icon className={`w-4 h-4 transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'}`} />
+                      <span className={`text-sm font-semibold transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                        {link.name}
+                      </span>
+                      <ExternalLink className="w-3 h-3 opacity-0 -ml-1 group-hover:opacity-100 transition-all" />
+                    </a>
+                  ))}
+                </div>
+                <div className={`flex items-center gap-2 text-xs font-medium ${subHeadingColor}`}>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#4C7F6E]" />
+                  Data provided by TradingView
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
