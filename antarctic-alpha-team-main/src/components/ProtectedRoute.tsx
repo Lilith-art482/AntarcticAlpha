@@ -27,7 +27,10 @@ export const ProtectedRoute = ({ children, adminOnly }: ProtectedRouteProps) => 
     return <Navigate to="/login" replace />
   }
 
-  // Auth disabled - allow all access
+  // Allow access if user is authenticated OR if admin mode is active
+  if (!isAuthenticated && !isAdmin && !isLimitedAdmin) {
+    return <Navigate to="/login" replace />
+  }
 
   // If route is admin-only, and user is not admin (full or limited), redirect or block
   if (adminOnly && !isAdmin && !isLimitedAdmin) {
