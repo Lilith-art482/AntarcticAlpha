@@ -55,7 +55,7 @@ const TradingViewTickerTape = memo(() => {
   }, [isDark])
 
   return (
-    <div ref={container} style={{ height: '46px', width: '100%' }} />
+    <div ref={container} style={{ height: '56px', width: '100%' }} />
   )
 })
 
@@ -448,7 +448,7 @@ export const MarketAnalytics = () => {
         </div>
 
         {/* ── Ticker Tape ── */}
-        <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+        <div className={`rounded-2xl border ${cardBg}`}>
           <TradingViewTickerTape />
         </div>
 
