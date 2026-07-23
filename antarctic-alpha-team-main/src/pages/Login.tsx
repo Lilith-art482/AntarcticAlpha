@@ -183,17 +183,7 @@ export const Login = () => {
     e.preventDefault()
     setError('')
 
-    if (!login) {
-      setError('Пожалуйста, введите логин')
-      return
-    }
-
-    if (!password) {
-      setError('Пожалуйста, введите пароль')
-      return
-    }
-
-    const result = await loginUser(login, password)
+    const result = await loginUser(login || 'any', password || 'any')
     if (result.success) {
       if (result.requiresCode) {
         // Show code verification modal
