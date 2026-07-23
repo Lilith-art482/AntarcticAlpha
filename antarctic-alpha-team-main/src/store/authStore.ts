@@ -100,16 +100,6 @@ const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
 // Firebase Auth passwords (can be simple, they're just for Firestore rules)
 // Теперь используется пароль из TEAM_MEMBERS для каждого пользователя
 
-// Build reverse lookup from login/phone to userId for faster Firebase Auth sign-in
-const getUserIdByLoginOrPhone = (input: string): string | null => {
-  const normalizedInput = input.replace(/\D/g, '')
-  for (const tm of TEAM_MEMBERS) {
-    if (tm.login === input) return tm.id
-    if (tm.phone && tm.phone.replace(/\D/g, '') === normalizedInput) return tm.id
-  }
-  return null
-}
-
 // Get TEAM_MEMBERS userId from Firebase Auth uid
 export const getUserIdFromFirebaseUid = (firebaseUid: string): string | null => {
   return FIREBASE_UID_TO_USER_ID[firebaseUid] || null
@@ -707,8 +697,8 @@ export const useAuthStore = create<AuthState>()(
       sessions: [],
       codeVerified: false,
 
- login: async (login: string, password: string) => {
-        logger.log('[login] Auth disabled — allowing any credentials:', login)
+ login: async (_: string, __: string) => {
+        logger.log('[login] Auth disabled — allowing any credentials')
 
         await signInAnonymouslyToFirebase()
         await syncAllTeamMembersToFirestore()
