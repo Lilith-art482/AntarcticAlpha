@@ -10,72 +10,37 @@ import {
   ChevronDown
 } from 'lucide-react'
 
-// TradingView Widget Component
+// TradingView Widget Component (iframe-based with drawing tools)
 const TradingViewWidget = memo(() => {
-  const container = useRef<HTMLDivElement>(null)
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
 
-  useEffect(() => {
-    if (!container.current) return
+  const features = JSON.stringify([
+    'chart',
+    'side_toolbar',
+    'drawing_tools',
+    'chart_crosshair_menu',
+    'chart_multiple_instance',
+    'symbol_search',
+    'keep_info_panel_open',
+    'uppercase_in_symbols_search',
+    'delete_symbol_in_search'
+  ])
 
-    // Clear any existing widgets
-    container.current.innerHTML = ''
+  const studies = JSON.stringify([
+    'MASimple@tv-basicstudies',
+    'Volume@tv-basicstudies'
+  ])
 
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
-    script.type = 'text/javascript'
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      allow_symbol_change: true,
-      calendar: false,
-      details: false,
-      hide_side_toolbar: true,
-      hide_top_toolbar: false,
-      hide_legend: false,
-      hide_volume: false,
-      hotlist: false,
-      interval: 'D',
-      locale: 'ru',
-      save_image: true,
-      style: '1',
-      symbol: 'BINANCE:BTCUSDT',
-      theme: 'dark',
-      timezone: 'Europe/Moscow',
-      backgroundColor: '#0F0F0F',
-      gridColor: 'rgba(242, 242, 242, 0.06)',
-      watchlist: [],
-      withdateranges: true,
-      compareSymbols: [],
-      studies: [],
-      autosize: true
-    })
-    container.current.appendChild(script)
-
-    return () => {
-      if (container.current) {
-        container.current.innerHTML = ''
-      }
-    }
-  }, [])
+  const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent('BINANCE:BTCUSDT')}&interval=D&theme=${isDark ? 'dark' : 'light'}&style=1&locale=ru&hide_side_toolbar=0&symboledit=1&saveimage=0&allow_symbol_change=1&timezone=Europe/Moscow&enabled_features=${encodeURIComponent(features)}&studies=${encodeURIComponent(studies)}`
 
   return (
-    <div 
-      className="tradingview-widget-container" 
-      ref={container} 
-      style={{ height: '100%', width: '100%' }}
-    >
-      <div 
-        className="tradingview-widget-container__widget" 
-        style={{ height: 'calc(100% - 32px)', width: '100%' }}
+    <div style={{ height: '100%', width: '100%' }}>
+      <iframe
+        src={widgetUrl}
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+        allowFullScreen={true}
       />
-      <div className="tradingview-widget-copyright">
-        <a 
-          href="https://ru.tradingview.com/symbols/BTCUSDT/?exchange=BINANCE" 
-          rel="noopener nofollow" 
-          target="_blank"
-        >
-          <span className="blue-text">Track all markets on TradingView</span>
-        </a>
-      </div>
     </div>
   )
 })
