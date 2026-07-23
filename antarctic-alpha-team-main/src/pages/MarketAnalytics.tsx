@@ -10,59 +10,61 @@ import {
   ChevronDown,
   ExternalLink,
   BarChart3,
-  TrendingUp,
-  Sparkles
+  TrendingUp
 } from 'lucide-react'
 
-// ─── TradingView Ticker Tape Widget ────────────────────────────────────────────
-const TradingViewTickerTape = memo(() => {
-  const container = useRef<HTMLDivElement>(null)
+// ─── Clickable Ticker Tape ──────────────────────────────────────────────────────
+const TICKER_SYMBOLS = [
+  { symbol: 'BINANCE:BTCUSDT', title: 'BTC', color: '#F7931A' },
+  { symbol: 'BINANCE:ETHUSDT', title: 'ETH', color: '#627EEA' },
+  { symbol: 'BINANCE:SOLUSDT', title: 'SOL', color: '#9945FF' },
+  { symbol: 'BINANCE:BNBUSDT', title: 'BNB', color: '#F3BA2F' },
+  { symbol: 'BINANCE:GRAMUSDT', title: 'GRAM', color: '#0098EA' },
+  { symbol: 'BINANCE:XRPUSDT', title: 'XRP', color: '#23292F' },
+  { symbol: 'BINANCE:DOGEUSDT', title: 'DOGE', color: '#C2A633' },
+  { symbol: 'BINANCE:ADAUSDT', title: 'ADA', color: '#0033AD' },
+  { symbol: 'BINANCE:AVAXUSDT', title: 'AVAX', color: '#E84142' },
+]
+
+const ClickableTickerTape = memo(({ selectedSymbol, onSelect }: {
+  selectedSymbol: string
+  onSelect: (symbol: string) => void
+}) => {
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
 
-  useEffect(() => {
-    if (!container.current) return
-    container.current.innerHTML = ''
-
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js'
-    script.type = 'text/javascript'
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      symbols: [
-        { proName: 'BINANCE:BTCUSDT', title: 'BTC' },
-        { proName: 'BINANCE:ETHUSDT', title: 'ETH' },
-        { proName: 'BINANCE:SOLUSDT', title: 'SOL' },
-        { proName: 'BINANCE:BNBUSDT', title: 'BNB' },
-        { proName: 'BINANCE:XRPUSDT', title: 'XRP' },
-        { proName: 'BINANCE:DOGEUSDT', title: 'DOGE' },
-        { proName: 'BINANCE:ADAUSDT', title: 'ADA' },
-        { proName: 'BINANCE:AVAXUSDT', title: 'AVAX' }
-      ],
-      showSymbolLogo: true,
-      isTransparent: true,
-      displayMode: 'compact',
-      colorTheme: isDark ? 'dark' : 'light',
-      locale: 'ru'
-    })
-    container.current.appendChild(script)
-
-    return () => {
-      if (container.current) {
-        container.current.innerHTML = ''
-      }
-    }
-  }, [isDark])
-
   return (
-    <div ref={container} style={{ height: '46px', width: '100%' }} />
+    <div className={`flex items-center gap-1 overflow-x-auto no-scrollbar py-2.5 px-3`}>
+      {TICKER_SYMBOLS.map((item) => {
+        const isActive = selectedSymbol === item.symbol
+        return (
+          <button
+            key={item.symbol}
+            onClick={() => onSelect(item.symbol)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 ${
+              isActive
+                ? 'bg-[#4C7F6E]/15 text-[#4C7F6E] border border-[#4C7F6E]/30'
+                : isDark
+                  ? 'bg-white/5 text-gray-400 border border-transparent hover:bg-white/10 hover:text-white'
+                  : 'bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200 hover:text-gray-900'
+            }`}
+          >
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ backgroundColor: item.color }}
+            />
+            {item.title}
+          </button>
+        )
+      })}
+    </div>
   )
 })
 
-TradingViewTickerTape.displayName = 'TradingViewTickerTape'
+ClickableTickerTape.displayName = 'ClickableTickerTape'
 
 // ─── TradingView Advanced Chart Widget (iframe-based with drawing tools) ────────
-const TradingViewWidget = memo(() => {
+const TradingViewWidget = memo(({ symbol }: { symbol: string }) => {
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
 
@@ -83,7 +85,7 @@ const TradingViewWidget = memo(() => {
     'Volume@tv-basicstudies'
   ])
 
-  const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent('BINANCE:BTCUSDT')}&interval=D&theme=${isDark ? 'dark' : 'light'}&style=1&locale=ru&hide_side_toolbar=0&symboledit=1&saveimage=0&allow_symbol_change=1&timezone=Europe/Moscow&enabled_features=${encodeURIComponent(features)}&studies=${encodeURIComponent(studies)}`
+  const widgetUrl = `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(symbol)}&interval=D&theme=${isDark ? 'dark' : 'light'}&style=1&locale=ru&hide_side_toolbar=0&symboledit=1&saveimage=0&allow_symbol_change=1&timezone=Europe/Moscow&enabled_features=${encodeURIComponent(features)}&studies=${encodeURIComponent(studies)}`
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
@@ -383,6 +385,7 @@ FAQItem.displayName = 'FAQItem'
 export const MarketAnalytics = () => {
   const { theme } = useThemeStore()
   const [activeTab, setActiveTab] = useState('chart')
+  const [selectedSymbol, setSelectedSymbol] = useState('BINANCE:BTCUSDT')
 
   const isDark = theme === 'dark'
   const headingColor = isDark ? 'text-white' : 'text-gray-900'
@@ -391,8 +394,17 @@ export const MarketAnalytics = () => {
   const bgColor = isDark ? 'bg-[#07090f]' : 'bg-gray-50'
   const borderColor = isDark ? 'border-white/10' : 'border-gray-200'
 
+  const gridPattern = isDark
+    ? 'bg-[linear-gradient(rgba(78,110,73,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(78,110,73,0.08)_1px,transparent_1px)]'
+    : 'bg-[linear-gradient(rgba(78,110,73,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(78,110,73,0.06)_1px,transparent_1px)]'
+
   const handleTabChange = useCallback((id: string) => {
     setActiveTab(id)
+  }, [])
+
+  const handleSymbolSelect = useCallback((symbol: string) => {
+    setSelectedSymbol(symbol)
+    setActiveTab('chart')
   }, [])
 
   // Tab configurations
@@ -429,96 +441,75 @@ export const MarketAnalytics = () => {
   ]
 
   return (
-    <div className={`min-h-screen ${bgColor} pb-20`}>
-      {/* ── Decorative Background Blurs ── */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#4C7F6E]/5 blur-[120px] rounded-full" />
-        <div className="absolute top-1/3 right-0 w-[400px] h-[400px] bg-blue-500/5 blur-[100px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-500/3 blur-[80px] rounded-full" />
-      </div>
+    <div className={`flex min-h-screen ${bgColor}`}>
+      {/* ── Grid Pattern Background ── */}
+      <div className={`fixed inset-0 pointer-events-none ${gridPattern} [background-size:40px_40px] z-0`} />
 
-      <div className="relative z-10">
+      <div className="w-full relative z-10 space-y-6 p-4 md:p-6">
         {/* ── Header ── */}
-        <div className="px-4 lg:px-8 pt-6 pb-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-[#4C7F6E] to-[#4E6E49] rounded-2xl shadow-lg shadow-[#4C7F6E]/20">
-                <BarChart3 className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${headingColor}`}>
-                  Market Analytics
-                </h1>
-                <p className={`text-sm font-medium ${subHeadingColor} mt-0.5`}>
-                  Профессиональные инструменты для трейдинга
-                </p>
-              </div>
-            </div>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl border ${
-              isDark ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'
-            }`}>
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className={`text-xs font-semibold ${subHeadingColor}`}>Live Data</span>
-              <Sparkles className="w-3.5 h-3.5 text-[#4C7F6E]" />
-            </div>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-[#4C7F6E]/10 rounded-2xl border border-[#4C7F6E]/20">
+            <BarChart3 className="w-8 h-8 text-[#4C7F6E]" />
+          </div>
+          <div>
+            <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${headingColor}`}>
+              Market Analytics
+            </h1>
+            <p className={`text-sm font-medium ${subHeadingColor}`}>
+              Профессиональные инструменты для трейдинга
+            </p>
           </div>
         </div>
 
         {/* ── Ticker Tape ── */}
-        <div className={`mx-4 lg:mx-8 mb-6 rounded-2xl border overflow-hidden ${
-          isDark ? 'bg-[#0b1015] border-white/5' : 'bg-white border-gray-100'
-        } shadow-lg`}>
-          <TradingViewTickerTape />
+        <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
+          <ClickableTickerTape selectedSymbol={selectedSymbol} onSelect={handleSymbolSelect} />
         </div>
 
         {/* ── Tabs Navigation ── */}
-        <div className="px-4 lg:px-8 mb-6">
-          <div className={`flex flex-wrap items-center gap-2 p-2 rounded-2xl border ${
-            isDark ? 'bg-[#0b1015]/80 border-white/5 backdrop-blur-xl' : 'bg-white/80 border-gray-100 backdrop-blur-xl shadow-sm'
-          }`}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              const isActive = activeTab === tab.id
+        <div className={`flex flex-wrap items-center gap-2 p-2 rounded-2xl border ${
+          isDark ? 'bg-[#0b1015]/80 border-white/5 backdrop-blur-xl' : 'bg-white/80 border-gray-100 backdrop-blur-xl shadow-sm'
+        }`}>
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleTabChange(tab.id)}
-                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                    isActive
-                      ? 'text-white shadow-lg scale-[1.02]'
-                      : `${subHeadingColor} hover:${headingColor} hover:bg-white/5`
-                  }`}
-                  style={isActive ? {
-                    background: `linear-gradient(135deg, var(--brand), var(--brand-strong))`,
-                    boxShadow: '0 8px 24px rgba(78, 110, 73, 0.35)'
-                  } : undefined}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              )
-            })}
-          </div>
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  isActive
+                    ? 'text-white shadow-lg scale-[1.02]'
+                    : `${subHeadingColor} hover:${headingColor} hover:bg-white/5`
+                }`}
+                style={isActive ? {
+                  background: `linear-gradient(135deg, var(--brand), var(--brand-strong))`,
+                  boxShadow: '0 8px 24px rgba(78, 110, 73, 0.35)'
+                } : undefined}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* ── Tab Content ── */}
-        <div className="px-4 lg:px-8 animate-fade-in">
+        <div className="animate-fade-in">
           {/* Chart Tab */}
           {activeTab === 'chart' && (
-            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#4E6E49]/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
-              <div className="h-[calc(100vh-340px)] min-h-[500px]">
-                <TradingViewWidget />
+            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
+              <div className="h-[calc(100vh-320px)] min-h-[500px]">
+                <TradingViewWidget symbol={selectedSymbol} />
               </div>
             </div>
           )}
 
           {/* Crypto Tab */}
           {activeTab === 'crypto' && (
-            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
-              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
+              <div className="h-[calc(100vh-320px)] min-h-[500px]">
                 <TradingViewCryptoScreenerWidget />
               </div>
             </div>
@@ -526,9 +517,8 @@ export const MarketAnalytics = () => {
 
           {/* Stocks Tab */}
           {activeTab === 'stocks' && (
-            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
-              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
+              <div className="h-[calc(100vh-320px)] min-h-[500px]">
                 <TradingViewStockHeatmapWidget />
               </div>
             </div>
@@ -537,28 +527,26 @@ export const MarketAnalytics = () => {
           {/* Heatmap Tab */}
           {activeTab === 'heatmap' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-                <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/5 blur-3xl rounded-full -mr-24 -mt-24 pointer-events-none" />
+              <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
                 <div className="p-4 border-b border-white/5">
                   <div className="flex items-center gap-2">
                     <Coins className="w-4 h-4 text-[#4C7F6E]" />
                     <span className={`text-sm font-bold ${headingColor}`}>Crypto Heatmap</span>
                   </div>
                 </div>
-                <div className="h-[calc(100vh-440px)] min-h-[400px]">
+                <div className="h-[calc(100vh-420px)] min-h-[400px]">
                   <TradingViewCryptoHeatmapWidget />
                 </div>
               </div>
 
-              <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-                <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-3xl rounded-full -mr-24 -mt-24 pointer-events-none" />
+              <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
                 <div className="p-4 border-b border-white/5">
                   <div className="flex items-center gap-2">
                     <Building2 className="w-4 h-4 text-[#4C7F6E]" />
                     <span className={`text-sm font-bold ${headingColor}`}>Stock Heatmap</span>
                   </div>
                 </div>
-                <div className="h-[calc(100vh-440px)] min-h-[400px]">
+                <div className="h-[calc(100vh-420px)] min-h-[400px]">
                   <TradingViewStockHeatmapWidget />
                 </div>
               </div>
@@ -567,9 +555,8 @@ export const MarketAnalytics = () => {
 
           {/* News Tab */}
           {activeTab === 'news' && (
-            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
-              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
+              <div className="h-[calc(100vh-320px)] min-h-[500px]">
                 <TradingViewNewsWidget />
               </div>
             </div>
@@ -577,9 +564,8 @@ export const MarketAnalytics = () => {
 
           {/* Calendar Tab */}
           {activeTab === 'calendar' && (
-            <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-              <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/5 blur-3xl rounded-full -mr-32 -mt-32 pointer-events-none" />
-              <div className="h-[calc(100vh-340px)] min-h-[500px]">
+            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
+              <div className="h-[calc(100vh-320px)] min-h-[500px]">
                 <TradingViewEventsWidget />
               </div>
             </div>
@@ -587,73 +573,68 @@ export const MarketAnalytics = () => {
         </div>
 
         {/* ── FAQ Section ── */}
-        <div className="px-4 lg:px-8 mt-8">
-          <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-            <div className="absolute top-0 left-0 w-48 h-48 bg-[#4C7F6E]/5 blur-3xl rounded-full -ml-24 -mt-24 pointer-events-none" />
-            <div className="relative p-6 lg:p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 rounded-xl bg-[#4C7F6E]/10">
-                  <TrendingUp className="w-5 h-5 text-[#4C7F6E]" />
+        <div className={`rounded-2xl border ${borderColor} ${cardBg}`}>
+          <div className="p-4 sm:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-[#4C7F6E]/10">
+                <TrendingUp className="w-5 h-5 text-[#4C7F6E]" />
+              </div>
+              <h3 className={`text-lg font-bold ${headingColor}`}>
+                Часто задаваемые вопросы
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {faqItems.map((item, index) => (
+                <div key={index}>
+                  <FAQItem
+                    icon={item.icon}
+                    question={item.question}
+                    answer={item.answer}
+                    isDark={isDark}
+                    textColor={headingColor}
+                    subTextColor={subHeadingColor}
+                  />
+                  {index < faqItems.length - 1 && (
+                    <div className={`h-px mx-4 ${isDark ? 'bg-white/5' : 'bg-gray-100'}`} />
+                  )}
                 </div>
-                <h3 className={`text-lg font-bold ${headingColor}`}>
-                  Часто задаваемые вопросы
-                </h3>
-              </div>
-              <div className="space-y-2">
-                {faqItems.map((item, index) => (
-                  <div key={index}>
-                    <FAQItem
-                      icon={item.icon}
-                      question={item.question}
-                      answer={item.answer}
-                      isDark={isDark}
-                      textColor={headingColor}
-                      subTextColor={subHeadingColor}
-                    />
-                    {index < faqItems.length - 1 && (
-                      <div className={`h-px mx-4 ${isDark ? 'bg-white/5' : 'bg-gray-100'}`} />
-                    )}
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
         {/* ── Quick Links ── */}
-        <div className="px-4 lg:px-8 mt-6 mb-8">
-          <div className={`relative rounded-3xl border ${borderColor} ${cardBg} overflow-hidden shadow-2xl`}>
-            <div className="p-5 lg:p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  {[
-                    { name: 'TradingView', url: 'https://www.tradingview.com', icon: LineChart },
-                    { name: 'CoinGecko', url: 'https://www.coingecko.com', icon: Coins },
-                    { name: 'Yahoo Finance', url: 'https://finance.yahoo.com', icon: Building2 }
-                  ].map((link) => (
-                    <a
-                      key={link.name}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] ${
-                        isDark
-                          ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
-                          : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300 hover:shadow-md'
-                      }`}
-                    >
-                      <link.icon className={`w-4 h-4 transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'}`} />
-                      <span className={`text-sm font-semibold transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'}`}>
-                        {link.name}
-                      </span>
-                      <ExternalLink className="w-3 h-3 opacity-0 -ml-1 group-hover:opacity-100 transition-all" />
-                    </a>
-                  ))}
-                </div>
-                <div className={`flex items-center gap-2 text-xs font-medium ${subHeadingColor}`}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#4C7F6E]" />
-                  Data provided by TradingView
-                </div>
+        <div className={`rounded-2xl border ${borderColor} ${cardBg}`}>
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                {[
+                  { name: 'TradingView', url: 'https://www.tradingview.com', icon: LineChart },
+                  { name: 'CoinGecko', url: 'https://www.coingecko.com', icon: Coins },
+                  { name: 'Yahoo Finance', url: 'https://finance.yahoo.com', icon: Building2 }
+                ].map((link) => (
+                  <a
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`group flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all duration-300 hover:scale-[1.03] active:scale-[0.97] ${
+                      isDark
+                        ? 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20'
+                        : 'border-gray-200 bg-gray-50 hover:bg-white hover:border-gray-300 hover:shadow-md'
+                    }`}
+                  >
+                    <link.icon className={`w-4 h-4 transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-gray-900'}`} />
+                    <span className={`text-sm font-semibold transition-colors ${isDark ? 'text-gray-400 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'}`}>
+                      {link.name}
+                    </span>
+                    <ExternalLink className="w-3 h-3 opacity-0 -ml-1 group-hover:opacity-100 transition-all" />
+                  </a>
+                ))}
+              </div>
+              <div className={`flex items-center gap-2 text-xs font-medium ${subHeadingColor}`}>
+                <div className="w-1.5 h-1.5 rounded-full bg-[#4C7F6E]" />
+                Data provided by TradingView
               </div>
             </div>
           </div>
