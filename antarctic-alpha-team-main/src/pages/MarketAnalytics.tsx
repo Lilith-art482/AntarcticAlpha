@@ -383,7 +383,7 @@ FAQItem.displayName = 'FAQItem'
 export const MarketAnalytics = () => {
   const { theme } = useThemeStore()
   const [activeTab, setActiveTab] = useState('chart')
-  const [selectedSymbol, setSelectedSymbol] = useState('BINANCE:BTCUSDT')
+  const selectedSymbol = 'BINANCE:BTCUSDT'
 
   const isDark = theme === 'dark'
   const headingColor = isDark ? 'text-white' : 'text-gray-900'
@@ -394,11 +394,6 @@ export const MarketAnalytics = () => {
 
   const handleTabChange = useCallback((id: string) => {
     setActiveTab(id)
-  }, [])
-
-  const handleSymbolSelect = useCallback((symbol: string) => {
-    setSelectedSymbol(symbol)
-    setActiveTab('chart')
   }, [])
 
   // Tab configurations
