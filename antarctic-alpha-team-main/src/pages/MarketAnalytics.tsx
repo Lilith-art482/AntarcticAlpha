@@ -13,55 +13,97 @@ import {
   TrendingUp
 } from 'lucide-react'
 
-// ─── Clickable Ticker Tape ──────────────────────────────────────────────────────
-const TICKER_SYMBOLS = [
-  { symbol: 'BINANCE:BTCUSDT', title: 'BTC', color: '#F7931A' },
-  { symbol: 'BINANCE:ETHUSDT', title: 'ETH', color: '#627EEA' },
-  { symbol: 'BINANCE:SOLUSDT', title: 'SOL', color: '#9945FF' },
-  { symbol: 'BINANCE:BNBUSDT', title: 'BNB', color: '#F3BA2F' },
-  { symbol: 'BINANCE:GRAMUSDT', title: 'GRAM', color: '#0098EA' },
-  { symbol: 'BINANCE:XRPUSDT', title: 'XRP', color: '#23292F' },
-  { symbol: 'BINANCE:DOGEUSDT', title: 'DOGE', color: '#C2A633' },
-  { symbol: 'BINANCE:ADAUSDT', title: 'ADA', color: '#0033AD' },
-  { symbol: 'BINANCE:AVAXUSDT', title: 'AVAX', color: '#E84142' },
+// ─── Scrolling Ticker Tape with Live Prices ────────────────────────────────────
+const TICKER_ITEMS = [
+  { symbol: 'BINANCE:BTCUSDT', title: 'BTC', color: '#F7931A', coingeckoId: 'bitcoin' },
+  { symbol: 'BINANCE:ETHUSDT', title: 'ETH', color: '#627EEA', coingeckoId: 'ethereum' },
+  { symbol: 'BINANCE:SOLUSDT', title: 'SOL', color: '#9945FF', coingeckoId: 'solana' },
+  { symbol: 'BINANCE:BNBUSDT', title: 'BNB', color: '#F3BA2F', coingeckoId: 'binancecoin' },
+  { symbol: 'BINANCE:GRAMUSDT', title: 'GRAM', color: '#0098EA', coingeckoId: 'the-open-network' },
+  { symbol: 'BINANCE:XRPUSDT', title: 'XRP', color: '#00AAE4', coingeckoId: 'ripple' },
+  { symbol: 'BINANCE:DOGEUSDT', title: 'DOGE', color: '#C2A633', coingeckoId: 'dogecoin' },
+  { symbol: 'BINANCE:ADAUSDT', title: 'ADA', color: '#0033AD', coingeckoId: 'cardano' },
+  { symbol: 'BINANCE:AVAXUSDT', title: 'AVAX', color: '#E84142', coingeckoId: 'avalanche-2' },
 ]
 
-const ClickableTickerTape = memo(({ selectedSymbol, onSelect }: {
+const ScrollingTickerTape = memo(({ selectedSymbol, onSelect }: {
   selectedSymbol: string
   onSelect: (symbol: string) => void
 }) => {
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
+  const [prices, setPrices] = useState<Record<string, { usd: number; usd_24h_change: number }>>({})
+
+  useEffect(() => {
+    const ids = TICKER_ITEMS.map(i => i.coingeckoId).join(',')
+    const fetchPrices = async () => {
+      try {
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
+        )
+        const data = await res.json()
+        setPrices(data)
+      } catch (e) {
+        console.error('Failed to fetch prices:', e)
+      }
+    }
+
+    fetchPrices()
+    const interval = setInterval(fetchPrices, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const formatPrice = (price: number) => {
+    if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 0 })
+    if (price >= 1) return price.toFixed(2)
+    return price.toFixed(4)
+  }
+
+  const tickerContent = TICKER_ITEMS.map((item) => {
+    const price = prices[item.coingeckoId]
+    const isSelected = selectedSymbol === item.symbol
+    const change = price?.usd_24h_change
+    const isUp = change && change > 0
+
+    return (
+      <button
+        key={item.symbol}
+        onClick={() => onSelect(item.symbol)}
+        className={`flex items-center gap-2 px-4 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
+          isSelected
+            ? 'bg-[#4C7F6E]/20 text-[#4C7F6E] border border-[#4C7F6E]/30'
+            : isDark
+              ? 'bg-white/5 text-gray-300 border border-transparent hover:bg-white/10 hover:text-white'
+              : 'bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200 hover:text-gray-900'
+        }`}
+      >
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+        <span>{item.title}</span>
+        {price && (
+          <>
+            <span className="text-gray-500">${formatPrice(price.usd)}</span>
+            {change !== undefined && change !== null && (
+              <span className={isUp ? 'text-emerald-400' : 'text-red-400'}>
+                {isUp ? '+' : ''}{change.toFixed(2)}%
+              </span>
+            )}
+          </>
+        )}
+      </button>
+    )
+  })
 
   return (
-    <div className={`flex items-center gap-1 overflow-x-auto no-scrollbar py-2.5 px-3`}>
-      {TICKER_SYMBOLS.map((item) => {
-        const isActive = selectedSymbol === item.symbol
-        return (
-          <button
-            key={item.symbol}
-            onClick={() => onSelect(item.symbol)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 ${
-              isActive
-                ? 'bg-[#4C7F6E]/15 text-[#4C7F6E] border border-[#4C7F6E]/30'
-                : isDark
-                  ? 'bg-white/5 text-gray-400 border border-transparent hover:bg-white/10 hover:text-white'
-                  : 'bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200 hover:text-gray-900'
-            }`}
-          >
-            <div
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: item.color }}
-            />
-            {item.title}
-          </button>
-        )
-      })}
+    <div className="relative overflow-hidden py-2.5">
+      <div className="flex gap-3 animate-marquee">
+        {tickerContent}
+        {tickerContent}
+      </div>
     </div>
   )
 })
 
-ClickableTickerTape.displayName = 'ClickableTickerTape'
+ScrollingTickerTape.displayName = 'ScrollingTickerTape'
 
 // ─── TradingView Advanced Chart Widget (iframe-based with drawing tools) ────────
 const TradingViewWidget = memo(({ symbol }: { symbol: string }) => {
@@ -463,7 +505,7 @@ export const MarketAnalytics = () => {
 
         {/* ── Ticker Tape ── */}
         <div className={`rounded-2xl border overflow-hidden ${cardBg}`}>
-          <ClickableTickerTape selectedSymbol={selectedSymbol} onSelect={handleSymbolSelect} />
+          <ScrollingTickerTape selectedSymbol={selectedSymbol} onSelect={handleSymbolSelect} />
         </div>
 
         {/* ── Tabs Navigation ── */}
