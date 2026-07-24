@@ -5,7 +5,7 @@ import { EarningsForm } from '@/components/Earnings/EarningsForm'
 import { EarningsList } from '@/components/Earnings/EarningsList'
 import { getEarnings } from '@/services/firestoreService'
 import { Earnings as EarningsType, EARNINGS_CATEGORY_META, EarningsCategory, EARNINGS_PERIODS, EarningsPeriod } from '@/types'
-import { Plus, DollarSign, TrendingUp, Wallet, PieChart, BarChart3, Calendar, ChevronDown, Lock, ArrowUpDown, Coins, Target, Trophy, Layers, Filter, Rocket, LineChart, Image, Shield, Sparkles, Repeat, HeartHandshake, Code2, Briefcase, Gift } from 'lucide-react'
+import { Plus, DollarSign, TrendingUp, Wallet, PieChart, BarChart3, Calendar, ChevronDown, Lock, ArrowUpDown, Coins, Target, Trophy, Layers, Filter, Rocket, LineChart, Image, Shield, Sparkles, Repeat, HeartHandshake, Code2, Briefcase, Gift, Bot } from 'lucide-react'
 import { getWeekRange, getMonthRange, formatDate } from '@/utils/dateUtils'
 import { useUsers } from '@/hooks/useUsers'
 import { useAccessControl } from '@/hooks/useAccessControl'
@@ -62,7 +62,9 @@ const ALL_CATEGORIES: EarningsCategory[] = [
   'airdrop',
   'p2p',
   'p2c',
-  'funds'
+  'funds',
+  'crypto_casino',
+  'automated_software'
 ]
 
 export const Earnings = () => {
@@ -498,6 +500,8 @@ export const Earnings = () => {
                       return <Repeat className={`${iconClass} ${colorClass}`} />
                     case 'handshake':
                       return <HeartHandshake className={`${iconClass} ${colorClass}`} />
+                    case 'bot':
+                      return <Bot className={`${iconClass} ${colorClass}`} />
                     case 'sparkles':
                       return <Sparkles className={`${iconClass} ${colorClass}`} />
                     default:
@@ -604,6 +608,8 @@ export const Earnings = () => {
                       return <Repeat className={`${iconClass} ${colorClass}`} />
                     case 'handshake':
                       return <HeartHandshake className={`${iconClass} ${colorClass}`} />
+                    case 'bot':
+                      return <Bot className={`${iconClass} ${colorClass}`} />
                     case 'sparkles':
                       return <Sparkles className={`${iconClass} ${colorClass}`} />
                     default:
