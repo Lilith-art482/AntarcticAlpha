@@ -5,7 +5,6 @@ import {
   Flame,
   Building2,
   Coins,
-  Newspaper,
   CalendarDays,
   ChevronDown,
   ExternalLink,
@@ -97,134 +96,6 @@ const TradingViewWidget = memo(({ symbol }: { symbol: string }) => {
 })
 
 TradingViewWidget.displayName = 'TradingViewWidget'
-
-// ─── Custom Crypto News Widget (RSS + auto-translate) ──────────────────────────
-interface NewsItem {
-  title: string
-  link: string
-  pubDate: string
-  description: string
-  thumbnail?: string
-  titleRu?: string
-  descRu?: string
-}
-
-const translateText = async (text: string): Promise<string> => {
-  try {
-    const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ru`
-    )
-    const data = await res.json()
-    return data.responseData?.translatedText || text
-  } catch {
-    return text
-  }
-}
-
-const CryptoNewsWidget = memo(() => {
-  const { theme } = useThemeStore()
-  const isDark = theme === 'dark'
-  const [news, setNews] = useState<NewsItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchNews = async () => {
-      try {
-        const res = await fetch(
-          'https://api.rss2json.com/v1/api.json?rss_url=https://cointelegraph.com/rss'
-        )
-        const data = await res.json()
-        if (data.status === 'ok' && data.items) {
-          const items: NewsItem[] = data.items.slice(0, 15)
-          setNews(items)
-          setLoading(false)
-
-          const translateBatch = async () => {
-            const updated = await Promise.all(
-              items.map(async (item) => {
-                const [titleRu, descRu] = await Promise.all([
-                  translateText(item.title),
-                  translateText(
-                    item.description.replace(/<[^>]*>/g, '').slice(0, 150)
-                  ),
-                ])
-                return { ...item, titleRu, descRu }
-              })
-            )
-            setNews(updated)
-          }
-          translateBatch()
-        }
-      } catch (e) {
-        console.error('Failed to fetch news:', e)
-        setLoading(false)
-      }
-    }
-    fetchNews()
-  }, [])
-
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 60) return `${mins}м`
-    const hrs = Math.floor(mins / 60)
-    if (hrs < 24) return `${hrs}ч`
-    const days = Math.floor(hrs / 24)
-    return `${days}д`
-  }
-
-  if (loading) {
-    return (
-      <div className={`flex items-center justify-center h-full ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-        <div className="animate-pulse text-sm">Загрузка новостей...</div>
-      </div>
-    )
-  }
-
-  return (
-    <div className={`h-full overflow-y-auto`}>
-      <div className="divide-y divide-white/5">
-        {news.map((item, i) => (
-          <a
-            key={i}
-            href={item.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`flex gap-3 p-3 transition-colors ${
-              isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
-            }`}
-          >
-            {item.thumbnail && (
-              <img
-                src={item.thumbnail}
-                alt=""
-                className="w-16 h-16 rounded-lg object-cover shrink-0"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <h4 className={`text-sm font-semibold leading-snug line-clamp-2 ${
-                isDark ? 'text-white' : 'text-gray-900'
-              }`}>
-                {item.titleRu || item.title}
-              </h4>
-              <p className={`text-xs mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {(item.descRu || item.description.replace(/<[^>]*>/g, '')).slice(0, 100)}...
-              </p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[10px] font-medium text-[#4C7F6E]">CoinTelegraph</span>
-                <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  {timeAgo(item.pubDate)}
-                </span>
-              </div>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
-  )
-})
-
-CryptoNewsWidget.displayName = 'CryptoNewsWidget'
 
 // ─── TradingView Economic Calendar Widget ───────────────────────────────────────
 const TradingViewEventsWidget = memo(() => {
@@ -615,15 +486,6 @@ export const MarketAnalytics = () => {
                 <div style={{ height: 'calc(100vh - 380px)', minHeight: '350px' }}>
                   <TradingViewStockHeatmapWidget />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* News Tab */}
-          {activeTab === 'news' && (
-            <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
-                <CryptoNewsWidget />
               </div>
             </div>
           )}
