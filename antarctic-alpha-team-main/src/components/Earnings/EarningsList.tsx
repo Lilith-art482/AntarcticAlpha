@@ -19,7 +19,7 @@ export const EarningsList = ({ earnings, onEdit, onDelete }: EarningsListProps) 
   const { isAdmin } = useAdminStore()
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const getCategoryIcon = (key: EarningsCategoryExtended, className = 'w-4 h-4') => {
+  const getCategoryIcon = (key: string, className = 'w-4 h-4') => {
     switch (key) {
       case 'memecoins':
       case 'memecoins_trading':
