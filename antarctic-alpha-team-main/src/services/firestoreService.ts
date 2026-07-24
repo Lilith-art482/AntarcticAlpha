@@ -4116,12 +4116,51 @@ export const approvePersonalDataVerification = async (
       dmComment: null, // Убираем комментарий при одобрении
     })
     
-    // Обновить статус пользователя
+    // Обновить статус пользователя и сохранить персональные данные
     const userRef = doc(db, 'users', verificationData.userId)
-    await updateDoc(userRef, {
+    const updateData: Record<string, any> = {
       personalDataVerificationStatus: 'approved',
       personalDataVerificationProcessedAt: now,
-    })
+    }
+
+    // Копируем personalData из заявки в профиль пользователя (с хэшами)
+    if (verificationData.personalData) {
+      const pd = verificationData.personalData
+      Object.assign(updateData, {
+        lastName: pd.lastName || '',
+        firstName: pd.firstName || '',
+        middleName: pd.middleName || '',
+        birthDate: pd.birthDate || '',
+        birthPlace: pd.birthPlace || '',
+        registrationAddress: pd.registrationAddress || '',
+        residenceAddress: pd.residenceAddress || '',
+        passportSeries: pd.passportSeries || '',
+        passportNumber: pd.passportNumber || '',
+        passportIssuedBy: pd.passportIssuedBy || '',
+        passportIssueDate: pd.passportIssueDate || '',
+        passportDepartmentCode: pd.passportDepartmentCode || '',
+        inn: pd.inn || '',
+        passportPhotos: pd.passportPhotos || [],
+        passportPhotosLink: pd.passportPhotosLink || '',
+        passportPhotosPassword: pd.passportPhotosPassword || '',
+        lastNameHash: hashFullName(pd.lastName),
+        firstNameHash: hashFullName(pd.firstName),
+        middleNameHash: hashFullName(pd.middleName),
+        birthDateHash: pd.birthDate ? pd.birthDate.split('-').reverse().join('.').replace(/\d(?=\d{2})/g, '*') : '',
+        birthPlaceHash: hashFullName(pd.birthPlace),
+        registrationAddressHash: hashFullName(pd.registrationAddress),
+        residenceAddressHash: hashFullName(pd.residenceAddress),
+        passportSeriesHash: hashPersonalData(pd.passportSeries, 2),
+        passportNumberHash: hashPersonalData(pd.passportNumber, 2),
+        passportIssuedByHash: hashPassportIssuer(pd.passportIssuedBy),
+        passportIssueDateHash: pd.passportIssueDate ? pd.passportIssueDate.split('-').reverse().join('.').replace(/\d(?=\d{2})/g, '*') : '',
+        passportDepartmentCodeHash: hashPersonalData(pd.passportDepartmentCode, 2),
+        innHash: hashPersonalData(pd.inn, 4),
+        personalDataUpdatedAt: now,
+      })
+    }
+
+    await updateDoc(userRef, updateData)
   } catch (error) {
     console.error('Error approving personal data verification:', error)
     throw error
