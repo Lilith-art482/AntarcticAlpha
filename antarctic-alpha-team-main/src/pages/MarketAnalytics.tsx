@@ -332,9 +332,32 @@ const FAQItem = memo(({ icon: Icon, question, answer, isDark, textColor, subText
 FAQItem.displayName = 'FAQItem'
 
 // ─── Main Page Component ────────────────────────────────────────────────────────
+// ─── DexScreener Chart Widget ───────────────────────────────────────────────────
+const DexScreenerWidget = memo(({ contractAddress }: { contractAddress: string }) => {
+  const { theme } = useThemeStore()
+  const isDark = theme === 'dark'
+
+  const embedUrl = `https://dexscreener.com/solana/${contractAddress}?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartTheme=${isDark ? 'dark' : 'light'}&theme=${isDark ? 'dark' : 'light'}&chartStyle=0&chartType=usd&interval=15`
+
+  return (
+    <div style={{ height: '100%', width: '100%' }}>
+      <iframe
+        src={embedUrl}
+        style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+        allowFullScreen={true}
+      />
+    </div>
+  )
+})
+
+DexScreenerWidget.displayName = 'DexScreenerWidget'
+
 export const MarketAnalytics = () => {
   const { theme } = useThemeStore()
   const [activeTab, setActiveTab] = useState('chart')
+  const [chartMode, setChartMode] = useState<'cex' | 'dex'>('cex')
+  const [contractAddress, setContractAddress] = useState('')
+  const [contractInput, setContractInput] = useState('')
   const selectedSymbol = 'BINANCE:BTCUSDT'
 
   const isDark = theme === 'dark'
@@ -437,8 +460,90 @@ export const MarketAnalytics = () => {
           {/* Chart Tab */}
           {activeTab === 'chart' && (
             <div className={`rounded-2xl border ${borderColor} ${cardBg} overflow-hidden`}>
-              <div style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
-                <TradingViewWidget symbol={selectedSymbol} />
+              {/* CEX/DEX Toggle */}
+              <div className={`flex items-center gap-3 p-3 border-b ${
+                isDark ? 'border-white/5' : 'border-gray-100'
+              }`}>
+                <div className={`flex rounded-xl p-1 ${
+                  isDark ? 'bg-white/5' : 'bg-gray-100'
+                }`}>
+                  <button
+                    onClick={() => setChartMode('cex')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      chartMode === 'cex'
+                        ? 'bg-[#4C7F6E] text-white shadow-md'
+                        : `${subHeadingColor} hover:${headingColor}`
+                    }`}
+                  >
+                    CEX
+                  </button>
+                  <button
+                    onClick={() => setChartMode('dex')}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      chartMode === 'dex'
+                        ? 'bg-[#4C7F6E] text-white shadow-md'
+                        : `${subHeadingColor} hover:${headingColor}`
+                    }`}
+                  >
+                    DEX
+                  </button>
+                </div>
+
+                {chartMode === 'dex' && (
+                  <div className="flex-1 flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={contractInput}
+                      onChange={(e) => setContractInput(e.target.value)}
+                      placeholder="Solana contract address..."
+                      className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-200 outline-none ${
+                        isDark
+                          ? 'bg-white/5 border-white/10 text-white placeholder-gray-500 focus:border-[#4C7F6E]/50'
+                          : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#4C7F6E]/50'
+                      }`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && contractInput.trim()) {
+                          setContractAddress(contractInput.trim())
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (contractInput.trim()) {
+                          setContractAddress(contractInput.trim())
+                        }
+                      }}
+                      disabled={!contractInput.trim()}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                        contractInput.trim()
+                          ? 'bg-[#4C7F6E] text-white hover:bg-[#3d6a5d]'
+                          : isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'
+                      }`}
+                    >
+                      Show
+                    </button>
+                  </div>
+                )}
+
+                {chartMode === 'cex' && (
+                  <div className={`text-xs font-medium ${subHeadingColor}`}>
+                    TradingView &middot; {selectedSymbol}
+                  </div>
+                )}
+              </div>
+
+              {/* Chart Content */}
+              <div style={{ height: 'calc(100vh - 340px)', minHeight: '400px' }}>
+                {chartMode === 'cex' ? (
+                  <TradingViewWidget symbol={selectedSymbol} />
+                ) : contractAddress ? (
+                  <DexScreenerWidget contractAddress={contractAddress} />
+                ) : (
+                  <div className={`flex flex-col items-center justify-center h-full ${subHeadingColor}`}>
+                    <LineChart className="w-12 h-12 mb-4 opacity-30" />
+                    <p className="text-sm font-medium">Enter a Solana contract address to view the chart</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
