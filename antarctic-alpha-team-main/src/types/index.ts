@@ -148,6 +148,8 @@ export type EarningsCategory =
   | 'p2p'                 // P2P
   | 'p2c'                 // P2C
   | 'funds'               // Фонда
+  | 'crypto_casino'       // Крипто-казино и игры
+  | 'automated_software'  // Автоматизированный софт
   | 'other'               // Другое
 
 // Extended type for backward compatibility (includes legacy 'memecoins')
@@ -168,6 +170,8 @@ export const EARNINGS_CATEGORY_META: Record<EarningsCategoryExtended, { label: s
   p2p: { label: 'P2P', accent: 'lime', icon: 'repeat', gradient: 'from-lime-500 to-green-600', shortName: 'P2P' },
   p2c: { label: 'P2C', accent: 'orange', icon: 'handshake', gradient: 'from-orange-500 to-amber-600', shortName: 'P2C' },
   funds: { label: 'Фонда', accent: 'purple', icon: 'briefcase', gradient: 'from-purple-500 to-pink-600', shortName: 'Фонда' },
+  crypto_casino: { label: 'Крипто-казино', accent: 'red', icon: 'sparkles', gradient: 'from-red-500 to-orange-600', shortName: 'Казино' },
+  automated_software: { label: 'Автоматизир. софт', accent: 'slate', icon: 'code', gradient: 'from-slate-500 to-gray-600', shortName: 'Софт' },
   other: { label: 'Другое', accent: 'gray', icon: 'sparkles', gradient: 'from-gray-500 to-gray-600', shortName: 'Другое' },
 }
 
