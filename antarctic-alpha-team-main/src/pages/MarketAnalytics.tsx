@@ -483,7 +483,6 @@ export const MarketAnalytics = () => {
     { id: 'crypto', label: 'Крипто', icon: Coins },
     { id: 'stocks', label: 'Акции', icon: Building2 },
     { id: 'heatmap', label: 'Тепловая карта', icon: Flame },
-    { id: 'news', label: 'Новости', icon: Newspaper },
     { id: 'calendar', label: 'Календарь', icon: CalendarDays },
   ]
 
