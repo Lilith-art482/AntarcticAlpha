@@ -6,7 +6,7 @@ import { Earnings, EARNINGS_CATEGORY_META, EarningsCategory, EarningsCategoryExt
 import { formatDate } from '@/utils/dateUtils'
 import { getUserNicknameSync } from '@/utils/userUtils'
 import { calculatePoolShare, getTotalAmount } from '@/utils/earningsCalculations'
-import { Edit2, Trash2, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Repeat, HeartHandshake } from 'lucide-react'
+import { Edit2, Trash2, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Repeat, HeartHandshake, Bot } from 'lucide-react'
 
 interface EarningsListProps {
   earnings: Earnings[]
@@ -41,6 +41,8 @@ export const EarningsList = ({ earnings, onEdit, onDelete }: EarningsListProps) 
         return <Repeat className={className} />
       case 'p2c':
         return <HeartHandshake className={className} />
+      case 'bot':
+        return <Bot className={className} />
       default:
         return <Sparkles className={className} />
     }

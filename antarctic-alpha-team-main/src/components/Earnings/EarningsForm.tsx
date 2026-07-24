@@ -6,7 +6,7 @@ import { addApprovalRequest } from '@/services/firestoreService'
 import { formatDate } from '@/utils/dateUtils'
 import { getUserNicknameSync } from '@/utils/userUtils'
 import { EARNINGS_CATEGORY_META, Earnings, EarningsCategory } from '@/types'
-import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, LinkIcon } from 'lucide-react'
+import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, LinkIcon, Bot } from 'lucide-react'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { calculatePoolShare, calculateTotalEarnings } from '@/utils/earningsCalculations'
 
@@ -29,7 +29,9 @@ const CATEGORY_OPTIONS: EarningsCategory[] = [
   'airdrop',
   'p2p',
   'p2c',
-  'funds'
+  'funds',
+  'crypto_casino',
+  'automated_software'
 ]
 
 const CATEGORY_ICONS: Record<EarningsCategory, React.ReactNode> = {
@@ -45,6 +47,8 @@ const CATEGORY_ICONS: Record<EarningsCategory, React.ReactNode> = {
   p2p: <Repeat className="w-5 h-5" />,
   p2c: <HeartHandshake className="w-5 h-5" />,
   funds: <Briefcase className="w-5 h-5" />,
+  crypto_casino: <Sparkles className="w-5 h-5" />,
+  automated_software: <Bot className="w-5 h-5" />,
   other: <Sparkles className="w-5 h-5" />,
 }
 
