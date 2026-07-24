@@ -98,13 +98,27 @@ const TradingViewWidget = memo(({ symbol }: { symbol: string }) => {
 
 TradingViewWidget.displayName = 'TradingViewWidget'
 
-// ─── Custom Crypto News Widget (RSS from CryptoRussia) ────────────────────────
+// ─── Custom Crypto News Widget (RSS + auto-translate) ──────────────────────────
 interface NewsItem {
   title: string
   link: string
   pubDate: string
   description: string
   thumbnail?: string
+  titleRu?: string
+  descRu?: string
+}
+
+const translateText = async (text: string): Promise<string> => {
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ru`
+    )
+    const data = await res.json()
+    return data.responseData?.translatedText || text
+  } catch {
+    return text
+  }
 }
 
 const CryptoNewsWidget = memo(() => {
@@ -117,15 +131,32 @@ const CryptoNewsWidget = memo(() => {
     const fetchNews = async () => {
       try {
         const res = await fetch(
-          'https://api.rss2json.com/v1/api.json?rss_url=https://cryptorussia.ru/feed'
+          'https://api.rss2json.com/v1/api.json?rss_url=https://cointelegraph.com/rss'
         )
         const data = await res.json()
         if (data.status === 'ok' && data.items) {
-          setNews(data.items.slice(0, 12))
+          const items: NewsItem[] = data.items.slice(0, 15)
+          setNews(items)
+          setLoading(false)
+
+          const translateBatch = async () => {
+            const updated = await Promise.all(
+              items.map(async (item) => {
+                const [titleRu, descRu] = await Promise.all([
+                  translateText(item.title),
+                  translateText(
+                    item.description.replace(/<[^>]*>/g, '').slice(0, 150)
+                  ),
+                ])
+                return { ...item, titleRu, descRu }
+              })
+            )
+            setNews(updated)
+          }
+          translateBatch()
         }
       } catch (e) {
         console.error('Failed to fetch news:', e)
-      } finally {
         setLoading(false)
       }
     }
@@ -142,12 +173,6 @@ const CryptoNewsWidget = memo(() => {
     return `${days}д`
   }
 
-  const stripHtml = (html: string) => {
-    const div = document.createElement('div')
-    div.innerHTML = html
-    return div.textContent || div.innerText || ''
-  }
-
   if (loading) {
     return (
       <div className={`flex items-center justify-center h-full ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -157,7 +182,7 @@ const CryptoNewsWidget = memo(() => {
   }
 
   return (
-    <div className={`h-full overflow-y-auto ${isDark ? 'scrollbar-dark' : 'scrollbar-light'}`}>
+    <div className={`h-full overflow-y-auto`}>
       <div className="divide-y divide-white/5">
         {news.map((item, i) => (
           <a
@@ -180,13 +205,13 @@ const CryptoNewsWidget = memo(() => {
               <h4 className={`text-sm font-semibold leading-snug line-clamp-2 ${
                 isDark ? 'text-white' : 'text-gray-900'
               }`}>
-                {item.title}
+                {item.titleRu || item.title}
               </h4>
               <p className={`text-xs mt-1 line-clamp-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {stripHtml(item.description).slice(0, 100)}...
+                {(item.descRu || item.description.replace(/<[^>]*>/g, '')).slice(0, 100)}...
               </p>
               <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[10px] font-medium text-[#4C7F6E]">CryptoRussia</span>
+                <span className="text-[10px] font-medium text-[#4C7F6E]">CoinTelegraph</span>
                 <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                   {timeAgo(item.pubDate)}
                 </span>
