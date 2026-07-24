@@ -332,12 +332,16 @@ const FAQItem = memo(({ icon: Icon, question, answer, isDark, textColor, subText
 FAQItem.displayName = 'FAQItem'
 
 // ─── Main Page Component ────────────────────────────────────────────────────────
-// ─── DexScreener Chart Widget ───────────────────────────────────────────────────
-const DexScreenerWidget = memo(({ contractAddress }: { contractAddress: string }) => {
+// ─── DEX Chart Widget (GMGN / DexScreener) ─────────────────────────────────────
+type DexSource = 'gmgn' | 'dexscreener'
+
+const DexChartWidget = memo(({ contractAddress, source }: { contractAddress: string; source: DexSource }) => {
   const { theme } = useThemeStore()
   const isDark = theme === 'dark'
 
-  const embedUrl = `https://dexscreener.com/solana/${contractAddress}?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartTheme=${isDark ? 'dark' : 'light'}&theme=${isDark ? 'dark' : 'light'}&chartStyle=0&chartType=usd&interval=15`
+  const embedUrl = source === 'gmgn'
+    ? `https://www.gmgn.cc/kline/sol/${contractAddress}?theme=${isDark ? 'dark' : 'light'}&interval=15`
+    : `https://dexscreener.com/solana/${contractAddress}?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartTheme=${isDark ? 'dark' : 'light'}&theme=${isDark ? 'dark' : 'light'}&chartStyle=0&chartType=usd&interval=15`
 
   return (
     <div style={{ height: '100%', width: '100%' }}>
@@ -350,7 +354,7 @@ const DexScreenerWidget = memo(({ contractAddress }: { contractAddress: string }
   )
 })
 
-DexScreenerWidget.displayName = 'DexScreenerWidget'
+DexChartWidget.displayName = 'DexChartWidget'
 
 export const MarketAnalytics = () => {
   const { theme } = useThemeStore()
@@ -358,6 +362,7 @@ export const MarketAnalytics = () => {
   const [chartMode, setChartMode] = useState<'cex' | 'dex'>('cex')
   const [contractAddress, setContractAddress] = useState('')
   const [contractInput, setContractInput] = useState('')
+  const [dexSource, setDexSource] = useState<DexSource>('gmgn')
   const selectedSymbol = 'BINANCE:BTCUSDT'
 
   const isDark = theme === 'dark'
@@ -491,6 +496,21 @@ export const MarketAnalytics = () => {
 
                 {chartMode === 'dex' && (
                   <div className="flex-1 flex items-center gap-2">
+                    <div className={`flex rounded-lg p-0.5 ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                      {(['gmgn', 'dexscreener'] as DexSource[]).map((src) => (
+                        <button
+                          key={src}
+                          onClick={() => setDexSource(src)}
+                          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${
+                            dexSource === src
+                              ? 'bg-[#4C7F6E] text-white shadow-sm'
+                              : `${subHeadingColor} hover:${headingColor}`
+                          }`}
+                        >
+                          {src === 'gmgn' ? 'GMGN' : 'DexScreener'}
+                        </button>
+                      ))}
+                    </div>
                     <input
                       type="text"
                       value={contractInput}
@@ -537,7 +557,7 @@ export const MarketAnalytics = () => {
                 {chartMode === 'cex' ? (
                   <TradingViewWidget symbol={selectedSymbol} />
                 ) : contractAddress ? (
-                  <DexScreenerWidget contractAddress={contractAddress} />
+                  <DexChartWidget contractAddress={contractAddress} source={dexSource} />
                 ) : (
                   <div className={`flex flex-col items-center justify-center h-full ${subHeadingColor}`}>
                     <LineChart className="w-12 h-12 mb-4 opacity-30" />
