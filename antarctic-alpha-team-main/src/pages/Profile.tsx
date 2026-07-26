@@ -356,28 +356,6 @@ export const Profile = () => {
     }
   }
 
-  // Validate personal data in modal before submission
-  const validateTempPersonalData = (): { valid: boolean; missingFields: string[] } => {
-    const missingFields: string[] = []
-
-    if (!tempPersonalData.phone?.trim()) missingFields.push('Телефон')
-    if (!tempPersonalData.email?.trim()) missingFields.push('Email')
-    if (!tempPersonalData.lastName?.trim()) missingFields.push('Фамилия')
-    if (!tempPersonalData.firstName?.trim()) missingFields.push('Имя')
-    if (!tempPersonalData.middleName?.trim()) missingFields.push('Отчество')
-    if (!tempPersonalData.birthDate) missingFields.push('Дата рождения')
-    if (!tempPersonalData.birthPlace?.trim()) missingFields.push('Место рождения')
-    if (!tempPersonalData.registrationAddress?.trim()) missingFields.push('Адрес регистрации')
-    if (!tempPersonalData.passportSeries?.trim()) missingFields.push('Серия паспорта')
-    if (!tempPersonalData.passportNumber?.trim()) missingFields.push('Номер паспорта')
-    if (!tempPersonalData.passportIssuedBy?.trim()) missingFields.push('Кем выдан')
-    if (!tempPersonalData.passportIssueDate) missingFields.push('Дата выдачи')
-    if (!tempPersonalData.passportDepartmentCode?.trim()) missingFields.push('Код подразделения')
-    if (!tempPersonalData.inn?.trim()) missingFields.push('ИНН')
-
-    return { valid: missingFields.length === 0, missingFields }
-  }
-
   // Load personal data on mount
   useEffect(() => {
     loadPersonalData()
