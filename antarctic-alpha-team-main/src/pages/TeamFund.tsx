@@ -24,7 +24,6 @@ import {
   BookOpen,
   Calendar,
   Users,
-  CheckSquare,
   FileText,
 } from 'lucide-react'
 import { TeamFundSphere, TEAM_FUND_SPHERES, TeamFundRequest, TeamFundRequestStatus } from '@/types'
