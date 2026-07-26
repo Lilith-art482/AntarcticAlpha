@@ -839,24 +839,83 @@ export default function TeamFund() {
         </div>
 
         {/* Admission Requirements */}
-        <div className={`p-4 rounded-xl border ${isDark ? 'border-[#4C7F6E]/20 bg-[#4C7F6E]/5' : 'border-[#4C7F6E]/10 bg-[#4C7F6E]/5'}`}>
-          <h3 className={`text-sm font-black mb-3 ${headingColor}`}>Условия допуска к заявке</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { icon: BookOpen, text: 'Пройденный Контур по сфере, в которой запрашивается баланс' },
-              { icon: Calendar, text: '21 торговый день в месяце по 5+ часов на демо-счёте с положительной прибылью' },
-              { icon: CheckSquare, text: 'Сдача устного, письменного и практического тестирования на 80+ баллов' },
-              { icon: Users, text: 'Нахождение в сообществе не менее 60 дней' },
-              { icon: Shield, text: 'Подтверждённая верификация в сообществе' },
-              { icon: Coins, text: 'Взнос в пул не менее 20.000 рублей' },
-              { icon: Wallet, text: 'Внесение страхового депозита не менее 500 USDT' },
-              { icon: CheckCircle2, text: 'Прохождение психологического тестирования' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <item.icon className="w-4 h-4 text-[#4C7F6E] mt-0.5 shrink-0" />
-                <span className={`text-xs leading-relaxed ${subHeadingColor}`}>{item.text}</span>
+        <div className={`relative overflow-hidden rounded-2xl border ${isDark ? 'border-[#4C7F6E]/30 bg-gradient-to-br from-[#4C7F6E]/10 via-[#1a2a24] to-[#0b1015]' : 'border-[#4C7F6E]/20 bg-gradient-to-br from-[#4C7F6E]/5 via-white to-[#f0faf5]'}`}>
+          {/* Decorative glow */}
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-[#4C7F6E]/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-[#4C7F6E]/10 rounded-full blur-2xl" />
+
+          <div className="relative p-6">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 rounded-xl bg-[#4C7F6E]/20 shadow-lg shadow-[#4C7F6E]/10">
+                <Shield className="w-5 h-5 text-[#4C7F6E]" />
               </div>
-            ))}
+              <div>
+                <h3 className={`text-base font-black ${headingColor}`}>Условия допуска к заявке</h3>
+                <p className={`text-[11px] mt-0.5 ${subHeadingColor}`}>Выполните все требования для получения доступа к фонду</p>
+              </div>
+            </div>
+
+            {/* Requirements Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { icon: BookOpen, title: 'Контур', text: 'Пройденный Контур по сфере, в которой запрашивается баланс' },
+                { icon: Calendar, title: 'Демо-торговля', text: '12 торговых дней в месяце по 3+ часов на демо-счёте с положительной прибылью (PNL (макс. просадка ≤30% от пика), WR ≥ 45%)' },
+                { icon: CheckSquare, title: 'Тестирование', text: 'Сдача устного и практического тестирования на 65+ баллов' },
+                { icon: Users, title: 'Сообщество', text: 'Нахождение в сообществе не менее 25 дней' },
+                { icon: Shield, title: 'Верификация', text: 'Подтверждённая верификация в сообществе' },
+                { icon: Coins, title: 'Взнос в пул', text: 'Взнос в пул не менее 6.000 ₽ за последние 30 дней' },
+                { icon: CheckCircle2, title: 'Психотест', text: 'Прохождение психологического тестирования' },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className={`group flex items-start gap-3 p-3 rounded-xl transition-all duration-200 ${
+                    isDark
+                      ? 'bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.04] hover:border-[#4C7F6E]/30'
+                      : 'bg-white/60 hover:bg-white border border-gray-100 hover:border-[#4C7F6E]/30 hover:shadow-md hover:shadow-[#4C7F6E]/5'
+                  }`}
+                >
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#4C7F6E]/10 flex items-center justify-center group-hover:bg-[#4C7F6E]/20 transition-colors">
+                    <item.icon className="w-4 h-4 text-[#4C7F6E]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${isDark ? 'text-[#4C7F6E]/70' : 'text-[#4C7F6E]'}`}>{item.title}</span>
+                    <p className={`text-xs leading-relaxed mt-0.5 ${subHeadingColor}`}>{item.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Deposit Table */}
+            <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'border-[#4C7F6E]/20 bg-black/20' : 'border-[#4C7F6E]/15 bg-[#4C7F6E]/[0.03]'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet className="w-4 h-4 text-[#4C7F6E]" />
+                <span className={`text-xs font-black uppercase tracking-wider ${headingColor}`}>Шкала страхового депозита</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { range: 'до 50', pct: '10%' },
+                  { range: 'до 100', pct: '12%' },
+                  { range: 'до 200', pct: '15%' },
+                  { range: 'до 500', pct: '17%' },
+                  { range: 'до 1 000', pct: '20%' },
+                  { range: 'свыше 1 000', pct: '25%' },
+                  { range: 'свыше 3 000', pct: 'indywidualno' },
+                ].map((row, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${
+                      isDark ? 'bg-white/[0.04]' : 'bg-white'
+                    }`}
+                  >
+                    <span className={subHeadingColor}>{row.range} USDT</span>
+                    <span className={`font-black ${i === 6 ? 'text-amber-500' : 'text-[#4C7F6E]'}`}>
+                      {row.pct === 'indywidualno' ? '— инд.' : row.pct}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
