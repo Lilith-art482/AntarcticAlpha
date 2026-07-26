@@ -1289,6 +1289,8 @@ export type PersonalDataVerificationStatus = 'pending' | 'approved' | 'rejected'
 
 // Интерфейс для персональных данных пользователя (полная версия для верификации)
 export interface PersonalDataFull {
+  phone?: string
+  email?: string
   lastName: string
   firstName: string
   middleName?: string
