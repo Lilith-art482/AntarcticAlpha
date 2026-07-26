@@ -58,7 +58,14 @@ export const Consent = () => {
     .join(' ') || '_______________________________________________'
 
   const passportDate = personalData.passportIssueDate
-    ? new Date(personalData.passportIssueDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? (() => {
+        const parts = personalData.passportIssueDate.split('-')
+        if (parts.length === 3) {
+          const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+          return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+        }
+        return personalData.passportIssueDate
+      })()
     : '_________________________'
 
   const todayDate = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -93,16 +100,26 @@ export const Consent = () => {
         return
       }
 
-      // Get user IP
+      // Get user IP (fallback if blocked by adblocker)
       let userIp = 'unknown'
       try {
         const ipRes = await fetch('https://api.ipify.org?format=json')
-        const ipData = await ipRes.json()
-        userIp = ipData.ip
-      } catch {}
+        if (ipRes.ok) {
+          const ipData = await ipRes.json()
+          userIp = ipData.ip
+        }
+      } catch {
+        try {
+          const ipRes = await fetch('https://api.my-ip.io/v2/ip.json')
+          if (ipRes.ok) {
+            const ipData = await ipRes.json()
+            userIp = ipData.ip
+          }
+        } catch {}
+      }
 
       // Save consent to Firestore
-      await addDoc(collection(db, 'user_consents'), {
+      await addDoc(collection(db, 'pdConsents'), {
         userId: user.id,
         userLogin: login,
         consentType: 'personal_data_processing',
@@ -151,9 +168,6 @@ export const Consent = () => {
               <h1 className={`text-2xl sm:text-3xl font-black mb-3 ${headingColor}`}>
                 Согласие на обработку персональных данных
               </h1>
-              <p className={`text-sm ${subTextColor}`}>
-                для целей осуществления выплат
-              </p>
             </div>
 
             <div className={`rounded-2xl p-6 border ${glassCard} mb-6`}>

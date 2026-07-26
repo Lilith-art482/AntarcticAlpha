@@ -2058,8 +2058,7 @@ export const Profile = () => {
                 )}
 
                 {/* Contact Data Section */}
-                {(userTelegram || userDiscord || userVK || userX) && (
-                  <div className="space-y-3">
+                <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <div className={`w-1.5 h-1.5 rounded-full bg-[#4C7F6E]`} />
                       <span className={`text-[10px] font-black uppercase tracking-widest ${
@@ -2213,7 +2212,6 @@ export const Profile = () => {
                       })}
                     </div>
                   </div>
-                )}
               </div>
 
               {/* Security Tip */}
