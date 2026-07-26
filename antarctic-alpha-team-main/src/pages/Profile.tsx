@@ -25,7 +25,6 @@ import {
   updateUserPassword,
   updateUserRecoveryCode,
   updateUserAuthCode,
-  savePersonalData,
   setPersonalDataPinCode,
   verifyPersonalDataPinCode,
   submitPersonalDataForVerification,
@@ -254,7 +253,6 @@ export const Profile = () => {
   })
   const [isEditingPersonalData, setIsEditingPersonalData] = useState(false)
   const [tempPersonalData, setTempPersonalData] = useState(personalData)
-  const [isSavingPersonalData, setIsSavingPersonalData] = useState(false)
   const [consentAccepted, setConsentAccepted] = useState(false)
   const [showWhyModal, setShowWhyModal] = useState(false)
   const [showPassportInstructionModal, setShowPassportInstructionModal] = useState(false)
@@ -378,73 +376,6 @@ export const Profile = () => {
     if (!tempPersonalData.inn?.trim()) missingFields.push('ИНН')
 
     return { valid: missingFields.length === 0, missingFields }
-  }
-
-  // Save personal data and submit for verification
-  const handleSavePersonalData = async () => {
-    const userId = effectiveUserId || user?.id || 'admin'
-    if (!userId) return
-
-    // Validate all required fields
-    const { valid, missingFields } = validateTempPersonalData()
-
-    if (!valid) {
-      showToast(`Заполните обязательные поля:\n${missingFields.join(', ')}`, 'error')
-      return
-    }
-
-    // Check if already verified or pending
-    if (personalDataVerificationStatus === 'approved') {
-      showToast('Персональные данные уже верифицированы', 'info')
-      return
-    }
-
-    if (personalDataVerificationStatus === 'pending') {
-      showToast('Заявка на верификацию уже отправлена', 'info')
-      return
-    }
-
-    setIsSavingPersonalData(true)
-    try {
-      // Save personal data first
-      await savePersonalData(userId, {
-        lastName: tempPersonalData.lastName,
-        firstName: tempPersonalData.firstName,
-        middleName: tempPersonalData.middleName,
-        birthDate: tempPersonalData.birthDate,
-        birthPlace: tempPersonalData.birthPlace,
-        registrationAddress: tempPersonalData.registrationAddress,
-        residenceAddress: tempPersonalData.residenceAddress,
-        passportSeries: tempPersonalData.passportSeries,
-        passportNumber: tempPersonalData.passportNumber,
-        passportIssuedBy: tempPersonalData.passportIssuedBy,
-        passportIssueDate: tempPersonalData.passportIssueDate,
-        passportDepartmentCode: tempPersonalData.passportDepartmentCode,
-        inn: tempPersonalData.inn,
-        passportPhotos: tempPersonalData.passportPhotos,
-        passportPhotosLink: tempPersonalData.passportPhotosLink,
-        passportPhotosPassword: tempPersonalData.passportPhotosPassword,
-      })
-
-      // Update local state
-      setPersonalData(tempPersonalData)
-
-      // Submit for verification
-      await submitPersonalDataForVerification(userId, tempPersonalData)
-      setPersonalDataVerificationStatus('pending')
-
-      setIsEditingPersonalData(false)
-      showToast('Заявка на верификацию успешно отправлена!', 'success')
-    } catch (error: any) {
-      console.error('Error saving personal ', error)
-      if (error.message?.includes('уже существует')) {
-        showToast(error.message, 'error')
-      } else {
-        showToast('Ошибка при отправке заявки. Попробуйте ещё раз.', 'error')
-      }
-    } finally {
-      setIsSavingPersonalData(false)
-    }
   }
 
   // Load personal data on mount
