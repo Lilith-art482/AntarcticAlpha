@@ -470,21 +470,24 @@ export const About = () => {
           </Link>
 
           {/* Политика обработки персональных данных */}
-          <div className={`group rounded-2xl p-6 border transition-all duration-300 hover:scale-[1.02] ${glassCard}`}>
-            <div className="flex items-start justify-between mb-4">
+          <Link
+            to="/privacy-policy"
+            className={`group rounded-2xl p-6 border transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-purple-500/30 ${glassCard}`}
+          >
+            <div className="flex items-start mb-4">
               <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
                 <FileText className="w-6 h-6 text-purple-400" />
               </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-gray-400 text-xs font-medium">
-                <Clock className="w-3 h-3" />
-                В разработке
-              </span>
             </div>
             <h3 className={`text-lg font-bold mb-2 ${headingColor}`}>Политика обработки персональных данных</h3>
-            <p className={`text-sm ${subTextColor}`}>
+            <p className={`text-sm ${subTextColor} mb-4`}>
               Политика конфиденциальности и защиты персональных данных
             </p>
-          </div>
+            <div className={`inline-flex items-center gap-2 text-sm font-medium text-purple-400`}>
+              <span>Открыть документ</span>
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            </div>
+          </Link>
 
           {/* Положение о бета-тестировании */}
           <Link
