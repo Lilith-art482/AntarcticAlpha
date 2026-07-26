@@ -41,6 +41,7 @@ import { TeamWallets } from './pages/TeamWallets'
 import ContourSpheres from './pages/ContourSpheres'
 import { BetaTesting } from './pages/BetaTesting'
 import { PoolRulesNew as PoolRules } from './pages/PoolRulesNew'
+import { PrivacyPolicy } from './pages/PrivacyPolicy'
 import { CheckReferrals } from './pages/admin/CheckReferrals'
 import { FeedbackAdmin } from './pages/admin/FeedbackAdmin'
 import ContactDM from './pages/ContactDM'
@@ -425,6 +426,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PoolRules />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/privacy-policy"
+            element={
+              <ProtectedRoute>
+                <PrivacyPolicy />
               </ProtectedRoute>
             }
           />
