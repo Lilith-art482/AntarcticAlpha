@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 import { ArrowLeft, Send, RefreshCw, Shield, CheckCircle2, Lock } from 'lucide-react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { db } from '@/services/firebase'
-import { collection, addDoc } from 'firebase/firestore'
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore'
 import { savePersonalData, submitPersonalDataForVerification } from '@/services/firestoreService'
 
 interface ConsentLocationState {
@@ -44,7 +44,6 @@ export const Consent = () => {
     : 'bg-white border-gray-200 text-gray-900 focus:border-[#4C7F6E]'
 
   const [step, setStep] = useState<'consent' | 'credentials'>('consent')
-  const [consentChecked, setConsentChecked] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Credentials step
@@ -52,27 +51,48 @@ export const Consent = () => {
   const [password, setPassword] = useState('')
   const [authCode, setAuthCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [credentialsError, setCredentialsError] = useState('')
 
   const fullName = [personalData.lastName, personalData.firstName, personalData.middleName]
     .filter(Boolean)
     .join(' ') || '_______________________________________________'
 
-  const passportInfo = personalData.passportSeries && personalData.passportNumber
-    ? `серия ${personalData.passportSeries} номер ${personalData.passportNumber}`
-    : 'серия __________ номер __________'
+  const passportDate = personalData.passportIssueDate
+    ? new Date(personalData.passportIssueDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '_________________________'
 
-  const issuedBy = personalData.passportIssuedBy || '________________________________________________'
+  const todayDate = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 
-  const handleSubmitConsent = () => {
-    if (!consentChecked) return
-    setStep('credentials')
-  }
+  const [policyChecked, setPolicyChecked] = useState(false)
+  const [consentChecked, setConsentChecked] = useState(false)
 
   const handleSubmitForVerification = async () => {
     if (!login.trim() || !password.trim() || !authCode.trim()) return
+    if (!user?.id) {
+      setCredentialsError('Не удалось определить пользователя. Войдите в аккаунт.')
+      return
+    }
 
+    setCredentialsError('')
     setIsSubmitting(true)
     try {
+      // Verify credentials by checking against user document
+      const userDocRef = doc(db, 'users', user.id)
+      const userDoc = await getDoc(userDocRef)
+
+      if (!userDoc.exists()) {
+        setCredentialsError('Пользователь не найден')
+        setIsSubmitting(false)
+        return
+      }
+
+      const userData = userDoc.data()
+      if (userData.login !== login || userData.password !== password || userData.authCode !== authCode) {
+        setCredentialsError('Неверный логин, пароль или код авторизации')
+        setIsSubmitting(false)
+        return
+      }
+
       // Get user IP
       let userIp = 'unknown'
       try {
@@ -83,7 +103,7 @@ export const Consent = () => {
 
       // Save consent to Firestore
       await addDoc(collection(db, 'user_consents'), {
-        userId: user?.id || 'unknown',
+        userId: user.id,
         userLogin: login,
         consentType: 'personal_data_processing',
         personalData: {
@@ -95,15 +115,14 @@ export const Consent = () => {
       })
 
       // Save personal data and submit for verification
-      const userId = user?.id
-      if (userId) {
-        await savePersonalData(userId, personalData)
-        await submitPersonalDataForVerification(userId, personalData as any)
-      }
+      await savePersonalData(user.id, personalData)
+      await submitPersonalDataForVerification(user.id, personalData as any)
 
+      // Navigate back to profile
       navigate('/profile', { state: { verificationSubmitted: true } })
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting consent:', error)
+      setCredentialsError('Произошла ошибка при отправке. Попробуйте ещё раз.')
     } finally {
       setIsSubmitting(false)
     }
@@ -140,16 +159,41 @@ export const Consent = () => {
             <div className={`rounded-2xl p-6 border ${glassCard} mb-6`}>
               <div className={`text-sm ${subTextColor} space-y-4 leading-relaxed`}>
                 <p>
-                  Я, <span className={`font-bold ${headingColor}`}>{fullName}</span>, (ФИО)
+                  Я, <span className={`font-bold ${headingColor}`}>{fullName}</span>,
                 </p>
                 <p>
                   зарегистрированный(ая) по адресу: <span className={`font-bold ${headingColor}`}>{personalData.registrationAddress || '___________________________________________'}</span>,
                 </p>
+
+                {/* Блок паспортных данных */}
+                <div className={`p-4 rounded-xl space-y-2 ${theme === 'dark' ? 'bg-white/[0.03] border border-white/5' : 'bg-gray-50 border border-gray-200'}`}>
+                  <p className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Паспортные данные</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                    <div>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Серия: </span>
+                      <span className={`font-bold ${headingColor}`}>{personalData.passportSeries || '____'}</span>
+                    </div>
+                    <div>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Номер: </span>
+                      <span className={`font-bold ${headingColor}`}>{personalData.passportNumber || '______'}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Кем выдан: </span>
+                      <span className={`font-bold ${headingColor}`}>{personalData.passportIssuedBy || '________________________________'}</span>
+                    </div>
+                    <div>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Дата выдачи: </span>
+                      <span className={`font-bold ${headingColor}`}>{passportDate}</span>
+                    </div>
+                    <div>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Код подразделения: </span>
+                      <span className={`font-bold ${headingColor}`}>{personalData.passportDepartmentCode || '______'}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <p>
-                  паспорт: {passportInfo}, выдан <span className={`font-bold ${headingColor}`}>{issuedBy}</span>
-                </p>
-                <p>
-                  {personalData.passportIssueDate || '_________________________'}, даю согласие Индивидуальному предпринимателю Соболевой Ксении Витальевне (ОГРНИП 322645700054948, ИНН 644110963363, адрес: 412906, Россия, Саратовская обл, г Вольск, ул Чернышевского, д. 40) на обработку следующих моих персональных данных: фамилия, имя и отчество; адрес электронной почты; номера телефонов; дата рождения и место рождения; место проживания и регистрации; паспортные данные; ИНН; банковские и крипто-реквизиты.
+                  даю согласие Индивидуальному предпринимателю Соболевой Ксении Витальевне (ОГРНИП 322645700054948, ИНН 644110963363, адрес: 412906, Россия, Саратовская обл, г Вольск, ул Чернышевского, д. 40) на обработку следующих моих персональных данных: фамилия, имя и отчество; адрес электронной почты; номера телефонов; дата рождения и место рождения; место проживания и регистрации; паспортные данные; ИНН; банковские и крипто-реквизиты.
                 </p>
 
                 <div className={`mt-6 p-4 rounded-xl ${theme === 'dark' ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
@@ -172,17 +216,34 @@ export const Consent = () => {
                   <p>путем направления письменного уведомления на адрес электронной почты Оператора: <a href="mailto:antarctic.alpha@yandex.ru" className="text-[#4C7F6E] hover:underline">antarctic.alpha@yandex.ru</a>.</p>
                 </div>
 
-                <p className="mt-4">
-                  Я ознакомлен(а) с <Link to="/privacy-policy" target="_blank" className="text-[#4C7F6E] hover:underline font-medium">Политикой обработки персональных данных</Link> Оператора и даю свое согласие на обработку указанных персональных данных.
-                </p>
-
                 <div className={`mt-4 pt-4 border-t ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}>
-                  <p>Дата: ______________</p>
+                  <p>Дата: <span className={`font-bold ${headingColor}`}>{todayDate}</span></p>
                 </div>
               </div>
 
-              {/* Чек-бокс */}
+              {/* Чек-бокс 1: Ознакомление с политикой */}
               <label className={`flex items-start gap-3 cursor-pointer mt-6 p-4 rounded-2xl border transition-all ${
+                policyChecked
+                  ? 'border-[#4C7F6E]/30 bg-[#4C7F6E]/5'
+                  : theme === 'dark' ? 'border-white/10 hover:border-white/20' : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={policyChecked}
+                  onChange={(e) => setPolicyChecked(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-[#4C7F6E] focus:ring-[#4C7F6E]"
+                />
+                <span className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Я ознакомлен(а) с{' '}
+                  <Link to="/privacy-policy" target="_blank" className="text-[#4C7F6E] hover:underline font-medium">
+                    Политикой обработки персональных данных
+                  </Link>{' '}
+                  Оператора и даю свое согласие на обработку указанных персональных данных.
+                </span>
+              </label>
+
+              {/* Чек-бокс 2: Согласие на обработку для выплат */}
+              <label className={`flex items-start gap-3 cursor-pointer mt-3 p-4 rounded-2xl border transition-all ${
                 consentChecked
                   ? 'border-[#4C7F6E]/30 bg-[#4C7F6E]/5'
                   : theme === 'dark' ? 'border-white/10 hover:border-white/20' : 'border-gray-200 hover:border-gray-300'
@@ -199,8 +260,8 @@ export const Consent = () => {
               </label>
 
               <button
-                onClick={handleSubmitConsent}
-                disabled={!consentChecked}
+                onClick={() => setStep('credentials')}
+                disabled={!policyChecked || !consentChecked}
                 className="w-full mt-6 py-4 rounded-2xl bg-[#4C7F6E] hover:bg-[#3d6b5a] text-white font-black text-sm transition-all shadow-lg shadow-[#4C7F6E]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
@@ -273,11 +334,13 @@ export const Consent = () => {
                 </div>
               </div>
 
-              <div className={`mt-6 p-4 rounded-xl ${theme === 'dark' ? 'bg-amber-500/5 border border-amber-500/20' : 'bg-amber-50 border border-amber-200'}`}>
-                <p className={`text-xs ${theme === 'dark' ? 'text-amber-400' : 'text-amber-700'}`}>
-                  Данные используются исключительно для проверки личности и не хранятся после верификации.
-                </p>
-              </div>
+              {credentialsError && (
+                <div className={`mt-4 p-4 rounded-xl ${theme === 'dark' ? 'bg-red-500/10 border border-red-500/20' : 'bg-red-50 border border-red-200'}`}>
+                  <p className={`text-sm font-medium ${theme === 'dark' ? 'text-red-400' : 'text-red-600'}`}>
+                    {credentialsError}
+                  </p>
+                </div>
+              )}
 
               <button
                 onClick={handleSubmitForVerification}
