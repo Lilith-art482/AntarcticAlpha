@@ -55,7 +55,6 @@ import {
   Check,
   User as UserIcon,
   Key,
-  Smartphone,
   Lock,
   Unlock,
   KeyRound,
