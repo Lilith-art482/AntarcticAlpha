@@ -42,6 +42,7 @@ import ContourSpheres from './pages/ContourSpheres'
 import { BetaTesting } from './pages/BetaTesting'
 import { PoolRulesNew as PoolRules } from './pages/PoolRulesNew'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
+import { Consent } from './pages/Consent'
 import { CheckReferrals } from './pages/admin/CheckReferrals'
 import { FeedbackAdmin } from './pages/admin/FeedbackAdmin'
 import ContactDM from './pages/ContactDM'
@@ -434,6 +435,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PrivacyPolicy />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/consent"
+            element={
+              <ProtectedRoute>
+                <Consent />
               </ProtectedRoute>
             }
           />
