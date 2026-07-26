@@ -233,6 +233,8 @@ export const Profile = () => {
 
   // Personal data state
   const [personalData, setPersonalData] = useState({
+    phone: '',
+    email: '',
     lastName: '',
     firstName: '',
     middleName: '',
@@ -253,6 +255,7 @@ export const Profile = () => {
   const [isEditingPersonalData, setIsEditingPersonalData] = useState(false)
   const [tempPersonalData, setTempPersonalData] = useState(personalData)
   const [isSavingPersonalData, setIsSavingPersonalData] = useState(false)
+  const [consentAccepted, setConsentAccepted] = useState(false)
   const [showWhyModal, setShowWhyModal] = useState(false)
   const [showPassportInstructionModal, setShowPassportInstructionModal] = useState(false)
 
@@ -330,6 +333,8 @@ export const Profile = () => {
       if (userDoc.exists()) {
         const data = userDoc.data()
         setPersonalData({
+          phone: data.phone || '',
+          email: data.email || '',
           lastName: data.lastName || '',
           firstName: data.firstName || '',
           middleName: data.middleName || '',
@@ -357,6 +362,8 @@ export const Profile = () => {
   const validateTempPersonalData = (): { valid: boolean; missingFields: string[] } => {
     const missingFields: string[] = []
 
+    if (!tempPersonalData.phone?.trim()) missingFields.push('Телефон')
+    if (!tempPersonalData.email?.trim()) missingFields.push('Email')
     if (!tempPersonalData.lastName?.trim()) missingFields.push('Фамилия')
     if (!tempPersonalData.firstName?.trim()) missingFields.push('Имя')
     if (!tempPersonalData.middleName?.trim()) missingFields.push('Отчество')
@@ -1354,6 +1361,8 @@ export const Profile = () => {
   const validatePersonalData = (): { valid: boolean; missingFields: string[] } => {
     const missingFields: string[] = []
 
+    if (!personalData.phone?.trim()) missingFields.push('Телефон')
+    if (!personalData.email?.trim()) missingFields.push('Email')
     if (!personalData.lastName?.trim()) missingFields.push('Фамилия')
     if (!personalData.firstName?.trim()) missingFields.push('Имя')
     if (!personalData.middleName?.trim()) missingFields.push('Отчество')
@@ -2342,22 +2351,7 @@ export const Profile = () => {
           </div>
         )}
 
-        {/* Notice about personal data collection */}
-        <div className={`p-4 rounded-2xl border-2 border-amber-500/30 bg-amber-500/5`}>
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 shrink-0">
-              <AlertTriangle className="w-5 h-5 text-amber-500" />
-            </div>
-            <div>
-              <p className={`text-sm font-bold text-amber-500 mb-1`}>
-                Пожалуйста, не вносите свои персональные данные
-              </p>
-              <p className={`text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-                Мы начнём сбор заявок на верификацию с 25 мая 2026 года.
-              </p>
-            </div>
-          </div>
-        </div>
+
 
         {/* Biometric Section - UPGRADED */}
         {user?.id && !isViewingOtherUser() && (
@@ -2733,6 +2727,42 @@ export const Profile = () => {
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Телефон */}
+                    <div className={`p-4 rounded-2xl border ${
+                      theme === 'dark'
+                        ? 'bg-white/[0.02] border-white/5'
+                        : 'bg-gray-50 border-gray-100'
+                    }`}>
+                      <span className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${
+                        theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                      }`}>
+                        Телефон
+                      </span>
+                      <p className={`text-sm font-bold ${
+                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {personalData.phone || '—'}
+                      </p>
+                    </div>
+
+                    {/* Email */}
+                    <div className={`p-4 rounded-2xl border ${
+                      theme === 'dark'
+                        ? 'bg-white/[0.02] border-white/5'
+                        : 'bg-gray-50 border-gray-100'
+                    }`}>
+                      <span className={`text-[9px] font-black uppercase tracking-wider block mb-1 ${
+                        theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                      }`}>
+                        Email
+                      </span>
+                      <p className={`text-sm font-bold ${
+                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {personalData.email || '—'}
+                      </p>
+                    </div>
+
                     {/* ФИО */}
                     <div className={`p-4 rounded-2xl border ${
                       theme === 'dark'
@@ -3354,6 +3384,34 @@ export const Profile = () => {
               </div>
 
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                {/* Контакты */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Телефон</label>
+                    <input
+                      type="tel"
+                      value={tempPersonalData.phone}
+                      onChange={(e) => setTempPersonalData({ ...tempPersonalData, phone: e.target.value })}
+                      className={`w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-[#4C7F6E]/10 ${
+                        theme === 'dark' ? 'bg-white/5 border-white/10 text-white focus:border-[#4C7F6E]' : 'bg-white border-gray-200 text-gray-900 focus:border-[#4C7F6E]'
+                      }`}
+                      placeholder="+7 (999) 123-45-67"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email</label>
+                    <input
+                      type="email"
+                      value={tempPersonalData.email}
+                      onChange={(e) => setTempPersonalData({ ...tempPersonalData, email: e.target.value })}
+                      className={`w-full px-4 py-3 rounded-2xl border transition-all focus:outline-none focus:ring-4 focus:ring-[#4C7F6E]/10 ${
+                        theme === 'dark' ? 'bg-white/5 border-white/10 text-white focus:border-[#4C7F6E]' : 'bg-white border-gray-200 text-gray-900 focus:border-[#4C7F6E]'
+                      }`}
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                </div>
+
                 {/* ФИО */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
@@ -3590,12 +3648,37 @@ export const Profile = () => {
                 </div>
               </div>
 
+              {/* Чек-бокс согласия */}
+              <div className="mt-4">
+                <label className={`flex items-start gap-3 cursor-pointer p-3 rounded-2xl border transition-all ${
+                  consentAccepted
+                    ? 'border-[#4C7F6E]/30 bg-[#4C7F6E]/5'
+                    : theme === 'dark' ? 'border-white/10 hover:border-white/20' : 'border-gray-200 hover:border-gray-300'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-gray-300 text-[#4C7F6E] focus:ring-[#4C7F6E]"
+                  />
+                  <span className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Я принимаю условия{' '}
+                    <a href="/privacy-policy" target="_blank" className="text-[#4C7F6E] hover:underline font-medium">
+                      Политики обработки персональных данных
+                    </a>
+                    {' '}и даю согласие на обработку моих персональных данных.
+                  </span>
+                </label>
+              </div>
+
               <button
-                onClick={handleSavePersonalData}
-                disabled={isSavingPersonalData}
-                className="w-full mt-6 py-4 rounded-2xl bg-[#4C7F6E] hover:bg-[#3d6b5a] text-white font-black text-sm transition-all shadow-lg shadow-[#4C7F6E]/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                onClick={() => {
+                  navigate('/consent', { state: { personalData: tempPersonalData } })
+                }}
+                disabled={!consentAccepted}
+                className="w-full mt-4 py-4 rounded-2xl bg-[#4C7F6E] hover:bg-[#3d6b5a] text-white font-black text-sm transition-all shadow-lg shadow-[#4C7F6E]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSavingPersonalData ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <Send className="w-4 h-4" />
                 <span>Отправить на верификацию</span>
               </button>
             </div>
