@@ -2540,7 +2540,7 @@ export const Profile = () => {
                     </div>
                   ) : (
                     <button
-                      onClick={handleSubmitForVerification}
+                      onClick={() => navigate('/consent', { state: { personalData } })}
                       disabled={verificationLoading}
                       className="px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 bg-[#4C7F6E] hover:bg-[#3d6b5a] text-white shadow-lg shadow-[#4C7F6E]/20 disabled:opacity-50"
                     >

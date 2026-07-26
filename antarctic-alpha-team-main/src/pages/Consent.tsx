@@ -57,16 +57,29 @@ export const Consent = () => {
     .filter(Boolean)
     .join(' ') || '_______________________________________________'
 
-  const passportDate = personalData.passportIssueDate
-    ? (() => {
-        const parts = personalData.passportIssueDate.split('-')
-        if (parts.length === 3) {
-          const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
-          return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const passportDate = (() => {
+    const raw = personalData.passportIssueDate
+    if (!raw) return '_________________________'
+    try {
+      if (raw.includes('-')) {
+        const parts = raw.split('-')
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
         }
-        return personalData.passportIssueDate
-      })()
-    : '_________________________'
+      }
+      if (raw.includes('.')) {
+        const parts = raw.split('.')
+        const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]))
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+        }
+      }
+      return raw
+    } catch {
+      return raw
+    }
+  })()
 
   const todayDate = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 
