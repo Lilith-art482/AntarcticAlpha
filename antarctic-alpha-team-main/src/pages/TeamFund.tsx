@@ -807,7 +807,7 @@ export default function TeamFund() {
               <span className={`text-sm font-bold ${headingColor}`}>Запрет на вывод</span>
             </div>
             <p className={`text-xs leading-relaxed ${subHeadingColor}`}>
-              Категорически запрещено выводить средства, принадлежащие Antarctic Alpha. Вся прибыль добавляется через P&L с оплатой взноса в пул, подробнее — в <Link to="/team-fund-charter" className="text-[#4C7F6E] hover:underline font-medium">положении «О фонде Antarctic Alpha»</Link>.
+              Категорически запрещено выводить средства, принадлежащие Antarctic Alpha. Вся прибыль добавляется через P&L с оплатой взноса в пул, подробнее — в <Link to="/team-fund-charter" className="text-[#4C7F6E] hover:underline font-medium">положении «О фонде Antarctic Alpha»</Link> и <Link to="/pool-rules" className="text-[#4C7F6E] hover:underline font-medium">положении «О формировании, накоплении и распределении Пула Antarctic Alpha»</Link>.
             </p>
           </div>
 

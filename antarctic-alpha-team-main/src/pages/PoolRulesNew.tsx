@@ -41,7 +41,7 @@ export const PoolRulesNew = () => {
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#4E6E49]/10 border border-[#4E6E49]/20 text-[#4E6E49] text-sm font-semibold mb-4`}>
             <FileText className="w-4 h-4" /> Документ
           </div>
-          <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-4 ${headingColor}`}>Положение о применении прогрессивной шкалы формирования Пула</h1>
+          <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-4 ${headingColor}`}>Положение о формировании, накоплении и распределении Пула Antarctic Alpha</h1>
           <p className={`text-lg ${subTextColor} max-w-2xl mx-auto`}>Принципы, условия и порядок формирования, накопления и распределения Пула в системе Antarctic Alpha</p>
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full mt-4 text-xs font-medium ${theme === 'dark' ? 'bg-white/5 text-white' : 'bg-gray-100 text-gray-900'}`}>
             <Clock className="w-3 h-3" /> Версия документа: 2026

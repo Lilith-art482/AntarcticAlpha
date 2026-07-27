@@ -459,9 +459,9 @@ export const About = () => {
                 <FileText className="w-6 h-6 text-blue-400" />
               </div>
             </div>
-            <h3 className={`text-lg font-bold mb-2 ${headingColor}`}>Положение о пуле</h3>
+            <h3 className={`text-lg font-bold mb-2 ${headingColor}`}>Положение о формировании, накоплении и распределении Пула Antarctic Alpha</h3>
             <p className={`text-sm ${subTextColor} mb-4`}>
-              Правила формирования и управления пулом с использованием прогрессивной шкалы
+              Порядок формирования, накопления и распределения Пула в системе Antarctic Alpha
             </p>
             <div className={`inline-flex items-center gap-2 text-sm font-medium text-blue-400`}>
               <span>Открыть документ</span>
