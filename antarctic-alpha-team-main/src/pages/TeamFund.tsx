@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useThemeStore } from '@/store/themeStore'
 import { useAuthStore } from '@/store/authStore'
 import { useAdminStore } from '@/store/adminStore'
@@ -806,7 +807,7 @@ export default function TeamFund() {
               <span className={`text-sm font-bold ${headingColor}`}>Запрет на вывод</span>
             </div>
             <p className={`text-xs leading-relaxed ${subHeadingColor}`}>
-              Категорически запрещено выводить средства, принадлежащие Antarctic Alpha. Вся прибыль добавляется через P&L с оплатой взноса в пул.
+              Категорически запрещено выводить средства, принадлежащие Antarctic Alpha. Вся прибыль добавляется через P&L с оплатой взноса в пул, подробнее — в <Link to="/team-fund-charter" className="text-[#4C7F6E] hover:underline font-medium">положении «О фонде Antarctic Alpha»</Link>.
             </p>
           </div>
 

@@ -508,6 +508,26 @@ export const About = () => {
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             </div>
           </Link>
+
+          {/* Положение о фонде Antarctic Alpha */}
+          <Link
+            to="/team-fund-charter"
+            className={`group rounded-2xl p-6 border transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:border-[#4C7F6E]/30 ${glassCard}`}
+          >
+            <div className="flex items-start mb-4">
+              <div className="w-12 h-12 rounded-xl bg-[#4C7F6E]/10 border border-[#4C7F6E]/20 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-[#4C7F6E]" />
+              </div>
+            </div>
+            <h3 className={`text-lg font-bold mb-2 ${headingColor}`}>Положение о фонде Antarctic Alpha</h3>
+            <p className={`text-sm ${subTextColor} mb-4`}>
+              Порядок предоставления доступа к средствам фонда, условия допуска и правила работы с выделенным капиталом
+            </p>
+            <div className={`inline-flex items-center gap-2 text-sm font-medium text-[#4C7F6E]`}>
+              <span>Открыть документ</span>
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+            </div>
+          </Link>
         </div>
       </div>
 
