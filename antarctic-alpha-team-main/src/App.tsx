@@ -42,6 +42,7 @@ import ContourSpheres from './pages/ContourSpheres'
 import { BetaTesting } from './pages/BetaTesting'
 import { PoolRulesNew as PoolRules } from './pages/PoolRulesNew'
 import { PrivacyPolicy } from './pages/PrivacyPolicy'
+import { TeamFundCharter } from './pages/TeamFundCharter'
 import { Consent } from './pages/Consent'
 import { CheckReferrals } from './pages/admin/CheckReferrals'
 import { FeedbackAdmin } from './pages/admin/FeedbackAdmin'
@@ -435,6 +436,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <PrivacyPolicy />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team-fund-charter"
+            element={
+              <ProtectedRoute>
+                <TeamFundCharter />
               </ProtectedRoute>
             }
           />
