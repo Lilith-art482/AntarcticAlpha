@@ -610,7 +610,7 @@ export const Login = () => {
               <div className={`mt-4 text-center text-xs ${
                 theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
               }`}>
-                Код действителен только для текущей сессии
+                Если код забыт, используйте функцию "напомнить данные"
               </div>
             </div>
           </div>
