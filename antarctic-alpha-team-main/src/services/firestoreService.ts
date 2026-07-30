@@ -3401,6 +3401,12 @@ export const getTeamFundRequests = async (
       screenshots: data.screenshots || [],
       links: data.links || [],
       requestedAmount: data.requestedAmount || 0,
+      paymentNetwork: data.paymentNetwork || 'ton',
+      depositAmount: data.depositAmount || 0,
+      receivingWallet: data.receivingWallet || '',
+      txHash: data.txHash,
+      paidAt: data.paidAt,
+      transferredAt: data.transferredAt,
       status: data.status || 'pending',
       reviewedBy: data.reviewedBy,
       adminComment: data.adminComment,
@@ -3436,6 +3442,12 @@ export const getUserTeamFundRequests = async (
       screenshots: data.screenshots || [],
       links: data.links || [],
       requestedAmount: data.requestedAmount || 0,
+      paymentNetwork: data.paymentNetwork || 'ton',
+      depositAmount: data.depositAmount || 0,
+      receivingWallet: data.receivingWallet || '',
+      txHash: data.txHash,
+      paidAt: data.paidAt,
+      transferredAt: data.transferredAt,
       status: data.status || 'pending',
       reviewedBy: data.reviewedBy,
       adminComment: data.adminComment,
@@ -3498,6 +3510,34 @@ export const deleteTeamFundRequest = async (requestId: string): Promise<void> =>
   await deleteDoc(ref)
 }
 
+// Mark team fund request as paid (user submits txHash)
+export const markTeamFundRequestPaid = async (
+  requestId: string,
+  txHash: string
+): Promise<void> => {
+  const ref = doc(db, TEAM_FUND_REQUESTS_COLLECTION, requestId)
+  const now = new Date().toISOString()
+  await updateDoc(ref, {
+    status: 'paid',
+    txHash,
+    paidAt: now,
+    updatedAt: now,
+  })
+}
+
+// Mark team fund request as transferred (admin confirms transfer)
+export const markTeamFundRequestTransferred = async (
+  requestId: string
+): Promise<void> => {
+  const ref = doc(db, TEAM_FUND_REQUESTS_COLLECTION, requestId)
+  const now = new Date().toISOString()
+  await updateDoc(ref, {
+    status: 'transferred',
+    transferredAt: now,
+    updatedAt: now,
+  })
+}
+
 // Clean up old team fund requests (older than 48 hours after decision)
 export const cleanupOldTeamFundRequests = async (): Promise<number> => {
   try {
@@ -3510,8 +3550,8 @@ export const cleanupOldTeamFundRequests = async (): Promise<number> => {
     
     const oldDocs = snapshot.docs.filter((docSnap: any) => {
       const data = docSnap.data()
-      // Only delete approved or rejected requests older than 48 hours
-      if (data.status !== 'approved' && data.status !== 'rejected') return false
+      // Only delete completed or rejected requests older than 48 hours
+      if (!['approved', 'rejected', 'paid', 'transferred'].includes(data.status)) return false
       if (!data.decidedAt) return false
       const decidedTimestamp = new Date(data.decidedAt).getTime()
       return decidedTimestamp < fortyEightHoursAgo
