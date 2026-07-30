@@ -1254,7 +1254,7 @@ export const TEAM_FUND_SPHERES: Record<TeamFundSphere, { label: string; accent: 
   traditional: { label: 'Традиционные инвестиции', accent: 'amber', description: 'Скальпинг, трейдинг, интрадей и холд до 3 месяцев' },
 }
 
-export type TeamFundRequestStatus = 'pending' | 'approved' | 'rejected'
+export type TeamFundRequestStatus = 'pending' | 'approved' | 'rejected' | 'paid' | 'transferred'
 
 export interface TeamFundRequest {
   id: string
@@ -1271,6 +1271,20 @@ export interface TeamFundRequest {
 
   // Запрашиваемая сумма (0 = полный доступ ко всем средствам)
   requestedAmount: number
+
+  // Страховой депозит
+  paymentNetwork: 'ton' | 'trc20' // Сеть для оплаты депозита
+  depositAmount: number // Рассчитанная сумма депозита
+
+  // Кошелёк для получения средств
+  receivingWallet: string // USDT TON или SOL
+
+  // Оплата депозита
+  txHash?: string // Хэш транзакции или ссылка
+  paidAt?: string
+
+  // Перевод средств
+  transferredAt?: string
 
   // Статус
   status: TeamFundRequestStatus
