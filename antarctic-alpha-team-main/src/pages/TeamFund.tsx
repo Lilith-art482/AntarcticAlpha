@@ -36,6 +36,8 @@ import {
   rejectTeamFundRequest,
   deleteTeamFundRequest,
   cleanupOldTeamFundRequests,
+  markTeamFundRequestPaid,
+  markTeamFundRequestTransferred,
 } from '@/services/firestoreService'
 import { UserNickname } from '@/components/UserNickname'
 import Avatar from '@/components/Avatar'
@@ -66,6 +68,18 @@ const statusBadgeMap: Record<TeamFundRequestStatus, { bg: string; text: string; 
     icon: <XCircle className="w-3.5 h-3.5" />,
     label: 'Отклонено',
   },
+  paid: {
+    bg: 'bg-blue-100 dark:bg-blue-900/30',
+    text: 'text-blue-800 dark:text-blue-200',
+    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+    label: 'Оплачено, ожидает перевода',
+  },
+  transferred: {
+    bg: 'bg-purple-100 dark:bg-purple-900/30',
+    text: 'text-purple-800 dark:text-purple-200',
+    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+    label: 'Переведено',
+  },
 }
 
 // Application Form Modal
@@ -83,6 +97,8 @@ const ApplicationFormModal = ({
   const [screenshots, setScreenshots] = useState<string[]>([])
   const [links, setLinks] = useState<{ url: string; name: string }[]>([])
   const [requestedAmount, setRequestedAmount] = useState('')
+  const [paymentNetwork, setPaymentNetwork] = useState<'ton' | 'trc20'>('ton')
+  const [receivingWallet, setReceivingWallet] = useState('')
   const [linkUrlInput, setLinkUrlInput] = useState('')
   const [linkNameInput, setLinkNameInput] = useState('')
   const [showSphereDropdown, setShowSphereDropdown] = useState(false)
@@ -131,16 +147,55 @@ const ApplicationFormModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const amount = parseFloat(requestedAmount) || 0
+    let deposit = 0
+    if (amount > 0) {
+      if (amount <= 50) deposit = amount * 0.10
+      else if (amount <= 100) deposit = amount * 0.12
+      else if (amount <= 200) deposit = amount * 0.15
+      else if (amount <= 500) deposit = amount * 0.17
+      else if (amount <= 1000) deposit = amount * 0.20
+      else if (amount <= 3000) deposit = amount * 0.25
+      else deposit = Math.max(amount * 0.25, 300)
+      // Add 6.5 USDT for TRC20 network
+      if (paymentNetwork === 'trc20') deposit += 6.5
+    }
     onSubmit({
       sphere,
       comment: comment.trim(),
       screenshots,
       links: links.filter((l) => l.url.trim()),
-      requestedAmount: parseFloat(requestedAmount) || 0,
+      requestedAmount: amount,
+      paymentNetwork,
+      depositAmount: deposit,
+      receivingWallet: receivingWallet.trim(),
     })
   }
 
   const isDark = theme === 'dark'
+
+  // Calculate insurance deposit based on requested amount
+  const calculateDeposit = (amount: number): { percent: number; amount: number; label: string } | null => {
+    if (amount <= 0) return null
+    let percent = 0
+    let label = ''
+    if (amount <= 50) { percent = 10; label = 'до 50 USDT' }
+    else if (amount <= 100) { percent = 12; label = 'до 100 USDT' }
+    else if (amount <= 200) { percent = 15; label = 'до 200 USDT' }
+    else if (amount <= 500) { percent = 17; label = 'до 500 USDT' }
+    else if (amount <= 1000) { percent = 20; label = 'до 1 000 USDT' }
+    else if (amount <= 3000) { percent = 25; label = 'свыше 1 000 USDT' }
+    else { percent = 25; label = 'свыше 3 000 USDT (инд., не менее 300)' }
+    
+    let depositAmount = amount * (percent / 100)
+    if (amount > 3000) depositAmount = Math.max(depositAmount, 300)
+    // Add 6.5 USDT for TRC20 network
+    if (paymentNetwork === 'trc20') depositAmount += 6.5
+    
+    return { percent, amount: depositAmount, label }
+  }
+
+  const depositInfo = calculateDeposit(parseFloat(requestedAmount) || 0)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -254,7 +309,7 @@ const ApplicationFormModal = ({
               onChange={(e) => setRequestedAmount(e.target.value)}
               placeholder="0 — полный доступ ко всем средствам"
               min="0"
-              step="100"
+              step="10"
               className={`w-full p-4 rounded-xl border ${
                 isDark
                   ? 'bg-white/5 border-white/10 text-white placeholder-gray-500'
@@ -262,7 +317,111 @@ const ApplicationFormModal = ({
               }`}
             />
             <p className={`text-xs mt-1.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              Оставьте 0, если запрашиваете полный доступ ко всем средствам фонда
+              Оставьте 0, если запрашиваете полный доступ ко всем средствам фонда. Шаг ввода — $10
+            </p>
+
+            {/* Insurance Deposit Calculator */}
+            {depositInfo && (
+              <div className={`mt-3 p-4 rounded-xl border ${isDark ? 'border-[#4C7F6E]/20 bg-[#4C7F6E]/5' : 'border-[#4C7F6E]/20 bg-[#4C7F6E]/[0.03]'}`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4 text-[#4C7F6E]" />
+                  <span className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Страховой депозит
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    ${depositInfo.amount.toFixed(2)}
+                  </span>
+                  <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    ({depositInfo.percent}%)
+                  </span>
+                </div>
+                <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {depositInfo.label}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Payment Network */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Сеть для оплаты депозита
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPaymentNetwork('ton')}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  paymentNetwork === 'ton'
+                    ? isDark
+                      ? 'border-[#4C7F6E] bg-[#4C7F6E]/10'
+                      : 'border-[#4C7F6E] bg-[#4C7F6E]/5'
+                    : isDark
+                    ? 'border-white/10 bg-white/5 hover:border-white/20'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${paymentNetwork === 'ton' ? 'bg-[#4C7F6E]' : 'bg-gray-400'}`} />
+                  <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>TON</span>
+                </div>
+                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>0 комиссии</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentNetwork('trc20')}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  paymentNetwork === 'trc20'
+                    ? isDark
+                      ? 'border-[#4C7F6E] bg-[#4C7F6E]/10'
+                      : 'border-[#4C7F6E] bg-[#4C7F6E]/5'
+                    : isDark
+                    ? 'border-white/10 bg-white/5 hover:border-white/20'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${paymentNetwork === 'trc20' ? 'bg-[#4C7F6E]' : 'bg-gray-400'}`} />
+                  <span className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>TRC20</span>
+                </div>
+                <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>+6.5 USDT комиссия</p>
+              </button>
+            </div>
+
+            {/* Payment Wallet Address */}
+            <div className={`mt-3 p-4 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+              <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                Кошелёк для оплаты ({paymentNetwork.toUpperCase()})
+              </p>
+              <code className={`text-sm font-mono break-all ${isDark ? 'text-[#4C7F6E]' : 'text-[#4C7F6E]'}`}>
+                {paymentNetwork === 'ton'
+                  ? 'UQCXjpXi4nih-dSfPQ2PVLjGHBIlBzZtmRVTDMt6gtX_QSL9'
+                  : 'TNFsmb4ow5gukxaKLudMKpmC4b764wxKnQ'}
+              </code>
+            </div>
+          </div>
+
+          {/* Receiving Wallet */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Кошелёк для получения средств
+            </label>
+            <input
+              type="text"
+              value={receivingWallet}
+              onChange={(e) => setReceivingWallet(e.target.value)}
+              placeholder="USDT (TON) или SOL (SOL)"
+              required
+              className={`w-full p-4 rounded-xl border font-mono text-sm ${
+                isDark
+                  ? 'bg-white/5 border-white/10 text-white placeholder-gray-500'
+                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
+              }`}
+            />
+            <p className={`text-xs mt-1.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Укажите адрес USDT в сети TON или SOL в сети SOL
             </p>
           </div>
 
@@ -430,6 +589,119 @@ const ApplicationFormModal = ({
   )
 }
 
+// Payment Modal
+const PaymentModal = ({
+  request,
+  onClose,
+  onSubmit,
+  theme,
+}: {
+  request: TeamFundRequest
+  onClose: () => void
+  onSubmit: (txHash: string) => void
+  theme: string
+}) => {
+  const [txHash, setTxHash] = useState('')
+  const isDark = theme === 'dark'
+
+  const paymentWallet = request.paymentNetwork === 'ton'
+    ? 'UQCXjpXi4nih-dSfPQ2PVLjGHBIlBzZtmRVTDMt6gtX_QSL9'
+    : 'TNFsmb4ow5gukxaKLudMKpmC4b764wxKnQ'
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div
+        className={`relative w-full max-w-lg rounded-3xl border ${
+          isDark ? 'bg-[#0f1624] border-white/10' : 'bg-white border-gray-200'
+        } shadow-2xl`}
+      >
+        <div
+          className={`flex items-center justify-between p-6 border-b ${
+            isDark ? 'border-white/10 bg-[#0f1624]' : 'border-gray-200 bg-white'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-[#4C7F6E]/20">
+              <Wallet className="w-5 h-5 text-[#4C7F6E]" />
+            </div>
+            <h2 className={`text-xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>Оплата депозита</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className={`p-2 rounded-xl transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Amount */}
+          <div className={`p-4 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Сумма к оплате
+            </p>
+            <p className={`text-3xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              ${request.depositAmount.toFixed(2)}
+            </p>
+            <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              Сеть: {request.paymentNetwork.toUpperCase()}
+              {request.paymentNetwork === 'trc20' ? ' (+6.5 USDT комиссия)' : ' (0 комиссии)'}
+            </p>
+          </div>
+
+          {/* Payment Wallet */}
+          <div className={`p-4 rounded-xl border ${isDark ? 'border-[#4C7F6E]/20 bg-[#4C7F6E]/5' : 'border-[#4C7F6E]/20 bg-[#4C7F6E]/[0.03]'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Кошелёк для оплаты ({request.paymentNetwork.toUpperCase()})
+            </p>
+            <code className={`text-sm font-mono break-all ${isDark ? 'text-[#4C7F6E]' : 'text-[#4C7F6E]'}`}>
+              {paymentWallet}
+            </code>
+          </div>
+
+          {/* Network */}
+          <div className={`p-4 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Сеть
+            </p>
+            <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {request.paymentNetwork === 'ton' ? 'TON' : 'TRC-20 (Tron)'}
+            </p>
+          </div>
+
+          {/* TX Hash Input */}
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Хэш транзакции или ссылка на блокчейн
+            </label>
+            <input
+              type="text"
+              value={txHash}
+              onChange={(e) => setTxHash(e.target.value)}
+              placeholder="Вставьте хэш транзакции или ссылку..."
+              className={`w-full p-4 rounded-xl border font-mono text-sm ${
+                isDark
+                  ? 'bg-white/5 border-white/10 text-white placeholder-gray-500'
+                  : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
+              }`}
+            />
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={() => onSubmit(txHash)}
+            disabled={!txHash.trim()}
+            className="w-full py-4 rounded-xl bg-[#4C7F6E] hover:bg-[#3d6a5c] text-white font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="w-5 h-5" />
+            Отправить
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Request Details Modal
 const RequestDetailsModal = ({
   request,
@@ -439,6 +711,8 @@ const RequestDetailsModal = ({
   onApprove,
   onReject,
   onDelete,
+  onPay,
+  onTransferred,
 }: {
   request: TeamFundRequest
   onClose: () => void
@@ -447,6 +721,8 @@ const RequestDetailsModal = ({
   onApprove: (id: string, comment?: string) => void
   onReject: (id: string, comment?: string) => void
   onDelete: (id: string) => void
+  onPay: (request: TeamFundRequest) => void
+  onTransferred: (id: string) => void
 }) => {
   const [adminComment, setAdminComment] = useState('')
   const [screenshotModal, setScreenshotModal] = useState<string | null>(null)
@@ -532,6 +808,30 @@ const RequestDetailsModal = ({
                   </p>
                 </div>
               </div>
+
+              {/* Deposit Info */}
+              {request.depositAmount > 0 && (
+                <div className={`mt-4 pt-4 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Страховой депозит</p>
+                      <p className={`text-xl font-black ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                        ${request.depositAmount.toFixed(2)}
+                      </p>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Сеть: {request.paymentNetwork.toUpperCase()}
+                        {request.paymentNetwork === 'trc20' ? ' (+6.5 USDT)' : ''}
+                      </p>
+                    </div>
+                    <div>
+                      <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Кошелёк для получения</p>
+                      <code className={`text-xs font-mono break-all ${isDark ? 'text-[#4C7F6E]' : 'text-[#4C7F6E]'}`}>
+                        {request.receivingWallet || '—'}
+                      </code>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Comment */}
@@ -642,6 +942,60 @@ const RequestDetailsModal = ({
                 </div>
               </div>
             )}
+
+            {/* User Payment Button (approved status) */}
+            {!isAdmin && request.status === 'approved' && (
+              <div className="pt-4 border-t border-gray-200/10">
+                <button
+                  onClick={() => onPay(request)}
+                  className="w-full py-3 rounded-xl bg-[#4C7F6E] hover:bg-[#3d6b5a] text-white font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Взнос
+                </button>
+              </div>
+            )}
+
+            {/* Admin Transfer Button (paid status) */}
+            {isAdmin && request.status === 'paid' && (
+              <div className="pt-4 border-t border-gray-200/10">
+                <div className={`p-3 rounded-xl mb-3 ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                  <p className={`text-xs ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                    Хэш транзакции: <code className="font-mono">{request.txHash}</code>
+                  </p>
+                </div>
+                <button
+                  onClick={() => onTransferred(request.id)}
+                  className="w-full py-3 rounded-xl bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Переведено
+                </button>
+              </div>
+            )}
+
+            {/* Payment Info (paid status for user) */}
+            {!isAdmin && request.status === 'paid' && (
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+                  Оплата получена. Ожидайте перевода средств.
+                </p>
+                {request.txHash && (
+                  <p className={`text-xs mt-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    Хэш транзакции: <code className="font-mono">{request.txHash}</code>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Transferred Info */}
+            {request.status === 'transferred' && (
+              <div className={`p-4 rounded-xl ${isDark ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
+                <p className={`text-sm ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
+                  Средства переведены на ваш кошелёк.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -665,7 +1019,8 @@ export default function TeamFund() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<TeamFundRequest | null>(null)
-  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [paymentRequest, setPaymentRequest] = useState<TeamFundRequest | null>(null)
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'paid' | 'transferred'>('all')
 
   const loadRequests = async () => {
     setLoading(true)
@@ -754,6 +1109,35 @@ export default function TeamFund() {
     } catch (error) {
       console.error('Error deleting request:', error)
       alert('Ошибка при удалении заявки')
+    }
+  }
+
+  const handlePay = (request: TeamFundRequest) => {
+    setPaymentRequest(request)
+    setSelectedRequest(null)
+  }
+
+  const handlePaymentSubmit = async (txHash: string) => {
+    if (!paymentRequest) return
+    try {
+      await markTeamFundRequestPaid(paymentRequest.id, txHash)
+      setPaymentRequest(null)
+      await loadRequests()
+    } catch (error) {
+      console.error('Error marking as paid:', error)
+      alert('Ошибка при отправке оплаты')
+    }
+  }
+
+  const handleTransferred = async (id: string) => {
+    if (!confirm('Подтвердить перевод средств?')) return
+    try {
+      await markTeamFundRequestTransferred(id)
+      setSelectedRequest(null)
+      await loadRequests()
+    } catch (error) {
+      console.error('Error marking as transferred:', error)
+      alert('Ошибка при подтверждении перевода')
     }
   }
 
@@ -898,7 +1282,7 @@ export default function TeamFund() {
                   { range: 'до 500', pct: '17%' },
                   { range: 'до 1 000', pct: '20%' },
                   { range: 'свыше 1 000', pct: '25%' },
-                  { range: 'свыше 3 000', pct: 'indywidualno' },
+                  { range: 'свыше 3 000', pct: 'инд., не менее 300' },
                 ].map((row, i) => (
                   <div
                     key={i}
@@ -908,7 +1292,7 @@ export default function TeamFund() {
                   >
                     <span className={subHeadingColor}>{row.range} USDT</span>
                     <span className={`font-black ${i === 6 ? 'text-amber-500' : 'text-[#4C7F6E]'}`}>
-                      {row.pct === 'indywidualno' ? '— инд.' : row.pct}
+                      {row.pct}
                     </span>
                   </div>
                 ))}
@@ -940,7 +1324,7 @@ export default function TeamFund() {
             {isAdmin ? 'Все заявки' : 'Мои заявки'}
           </h2>
           <div className="flex items-center gap-1">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map((tab) => (
+            {(['all', 'pending', 'approved', 'rejected', 'paid', 'transferred'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -956,6 +1340,8 @@ export default function TeamFund() {
                 {tab === 'pending' && 'На рассмотрении'}
                 {tab === 'approved' && 'Одобрено'}
                 {tab === 'rejected' && 'Отклонено'}
+                {tab === 'paid' && 'Оплачено'}
+                {tab === 'transferred' && 'Переведено'}
               </button>
             ))}
           </div>
@@ -1038,6 +1424,16 @@ export default function TeamFund() {
           onApprove={handleApprove}
           onReject={handleReject}
           onDelete={handleDelete}
+          onPay={handlePay}
+          onTransferred={handleTransferred}
+        />
+      )}
+      {paymentRequest && (
+        <PaymentModal
+          request={paymentRequest}
+          onClose={() => setPaymentRequest(null)}
+          onSubmit={handlePaymentSubmit}
+          theme={theme}
         />
       )}
     </div>
