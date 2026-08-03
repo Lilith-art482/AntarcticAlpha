@@ -545,11 +545,7 @@ export const MarketAnalytics = () => {
                   </div>
                 )}
 
-                {chartMode === 'cex' && (
-                  <div className={`text-xs font-medium ${subHeadingColor}`}>
-                    TradingView &middot; {selectedSymbol}
-                  </div>
-                )}
+
               </div>
 
               {/* Chart Content */}
