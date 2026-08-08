@@ -285,6 +285,18 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
     setPromoError('')
   }
 
+  // Re-validate promo when sphere changes
+  const handleSphereChange = async (cat: EarningsCategory) => {
+    setCategory(cat)
+    if (promoApplied && promoDiscount) {
+      if (!promoDiscount.spheres.includes(cat)) {
+        setPromoApplied(false)
+        setPromoDiscount(null)
+        setPromoError('Сфера изменена — промокод снят (недоступен для выбранной сферы)')
+      }
+    }
+  }
+
   // Calculate values
   const numericAmount = parseFloat(amount || '0')
   const numericExtraWalletsCount = parseInt(extraWalletsCount || '0', 10)
@@ -338,6 +350,25 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
     if (isAdmin && isEditing && editingEarning?.status === 'approved') {
       setError('Нельзя изменять одобренный заработок')
       return
+    }
+
+    // Re-validate promo before save
+    if (promoApplied && promoDiscount) {
+      if (!promoDiscount.spheres.includes(category)) {
+        setPromoApplied(false)
+        setPromoDiscount(null)
+        setPromoError('Промокод недоступен для выбранной сферы')
+        setError('Сфера не соответствует промокоду. Промокод снят.')
+        return
+      }
+      const now = new Date().toISOString()
+      if (promoDiscount.expiresAt < now || promoDiscount.isUsed || !promoDiscount.isActive) {
+        setPromoApplied(false)
+        setPromoDiscount(null)
+        setPromoError('Промокод больше не действителен')
+        setError('Промокод истёк или уже использован')
+        return
+      }
     }
 
     setLoading(true)
@@ -578,7 +609,7 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => setCategory(cat)}
+                    onClick={() => handleSphereChange(cat)}
                     disabled={!canEdit}
                     className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all duration-200 ${
                       isSelected
