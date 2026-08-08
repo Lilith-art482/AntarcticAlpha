@@ -14,10 +14,8 @@ export type AdminSection =
   | 'appeals'
   | 'admin'
   | 'team-wallets'
-  | 'hr-hub'
   | 'contour-spheres'
-  | 'feedback-form'
-  | 'applications'
+  | 'pool-discounts'
 
 // Конфигурация ограниченного доступа для конкретных пользователей
 const LIMITED_ACCESS_CONFIG: Record<string, AdminSection[]> = {

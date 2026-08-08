@@ -1456,3 +1456,24 @@ export interface DMContactRequest {
   createdAt: string
   updatedAt: string
 }
+
+// ==================== POOL DISCOUNT (PROMO CODE) TYPES ====================
+
+export type PoolDiscountSphere = EarningsCategory
+
+export interface PoolDiscount {
+  id: string
+  userId: string
+  userName?: string
+  code: string
+  discountPercent: number
+  spheres: PoolDiscountSphere[]
+  expiresAt: string
+  isActive: boolean
+  isUsed: boolean
+  usedAt?: string
+  usedInEarningId?: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+}

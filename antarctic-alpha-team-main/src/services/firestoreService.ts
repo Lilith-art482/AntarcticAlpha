@@ -17,7 +17,7 @@ import {
   DocumentSnapshot,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config' // Keep original path for db
-import { WorkSlot, DayStatus, Earnings, RatingData, Referral, Call, Task, TaskStatus, TaskPriority, ApprovalRequest, ApprovalStatus, UserNickname, Restriction, RestrictionType, UserConflict, AccessBlock, AiAlert, User, TriggerAlert, FasolTriggerAlert, Lesson, LessonTopic, StageAssignee, Note, Trade, TradeSetupTemplate, TradeMarketType, TradeDirection, UserSession, UserWallet, CompensationRequest, CompensationRequestStatus, DiversificationEntry, TeamFundRequest, TeamFundRequestStatus, Payment, PaymentBatch, DMContactRequest, DMContactStatus } from '@/types'
+import { WorkSlot, DayStatus, Earnings, RatingData, Referral, Call, Task, TaskStatus, TaskPriority, ApprovalRequest, ApprovalStatus, UserNickname, Restriction, RestrictionType, UserConflict, AccessBlock, AiAlert, User, TriggerAlert, FasolTriggerAlert, Lesson, LessonTopic, StageAssignee, Note, Trade, TradeSetupTemplate, TradeMarketType, TradeDirection, UserSession, UserWallet, CompensationRequest, CompensationRequestStatus, DiversificationEntry, TeamFundRequest, TeamFundRequestStatus, Payment, PaymentBatch, DMContactRequest, DMContactStatus, PoolDiscount } from '@/types'
 import { clearNicknameCache, getUserNicknameAsync } from '@/utils/userUtils'
 import { formatDate } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
@@ -4701,6 +4701,147 @@ export const deleteDMContactRequest = async (id: string): Promise<void> => {
     await deleteDoc(ref)
   } catch (error) {
     console.error('Error deleting DM contact request:', error)
+    throw error
+  }
+}
+
+// ==================== POOL DISCOUNTS ====================
+
+const POOL_DISCOUNTS_COLLECTION = 'poolDiscounts'
+
+export const addPoolDiscount = async (discount: Omit<PoolDiscount, 'id'>): Promise<string> => {
+  try {
+    const cleanData = Object.fromEntries(
+      Object.entries(discount).filter(([_, value]: [string, any]) => value !== undefined)
+    )
+    const result = await addDoc(collection(db, POOL_DISCOUNTS_COLLECTION), cleanData)
+    return result.id
+  } catch (error) {
+    console.error('Error adding pool discount:', error)
+    throw error
+  }
+}
+
+export const getPoolDiscounts = async (userId?: string): Promise<PoolDiscount[]> => {
+  try {
+    let q
+    if (userId) {
+      q = query(collection(db, POOL_DISCOUNTS_COLLECTION), where('userId', '==', userId))
+    } else {
+      q = query(collection(db, POOL_DISCOUNTS_COLLECTION))
+    }
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as PoolDiscount[]
+  } catch (error) {
+    console.error('Error getting pool discounts:', error)
+    throw error
+  }
+}
+
+export const getActivePoolDiscountByUser = async (userId: string, sphere: string): Promise<PoolDiscount | null> => {
+  try {
+    const q = query(
+      collection(db, POOL_DISCOUNTS_COLLECTION),
+      where('userId', '==', userId),
+      where('isActive', '==', true),
+      where('isUsed', '==', false)
+    )
+    const snapshot = await getDocs(q)
+    const now = new Date().toISOString()
+    
+    for (const docSnap of snapshot.docs) {
+      const discount = { id: docSnap.id, ...docSnap.data() } as PoolDiscount
+      if (discount.expiresAt > now && discount.spheres.includes(sphere as any)) {
+        return discount
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting active pool discount:', error)
+    throw error
+  }
+}
+
+export const updatePoolDiscount = async (id: string, updates: Partial<PoolDiscount>): Promise<void> => {
+  try {
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, value]: [string, any]) => value !== undefined)
+    )
+    await updateDoc(doc(db, POOL_DISCOUNTS_COLLECTION, id), {
+      ...cleanUpdates,
+      updatedAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error updating pool discount:', error)
+    throw error
+  }
+}
+
+export const deletePoolDiscount = async (id: string): Promise<void> => {
+  try {
+    await deleteDoc(doc(db, POOL_DISCOUNTS_COLLECTION, id))
+  } catch (error) {
+    console.error('Error deleting pool discount:', error)
+    throw error
+  }
+}
+
+export const markPoolDiscountAsUsed = async (id: string, earningId: string): Promise<void> => {
+  try {
+    await updateDoc(doc(db, POOL_DISCOUNTS_COLLECTION, id), {
+      isUsed: true,
+      usedAt: new Date().toISOString(),
+      usedInEarningId: earningId,
+      updatedAt: new Date().toISOString()
+    })
+  } catch (error) {
+    console.error('Error marking pool discount as used:', error)
+    throw error
+  }
+}
+
+export const checkPoolDiscountCode = async (code: string, userId: string, sphere: string): Promise<{ valid: boolean; discount?: PoolDiscount; error?: string }> => {
+  try {
+    const q = query(
+      collection(db, POOL_DISCOUNTS_COLLECTION),
+      where('code', '==', code.trim().toUpperCase())
+    )
+    const snapshot = await getDocs(q)
+    
+    if (snapshot.empty) {
+      return { valid: false, error: 'Промокод не найден' }
+    }
+    
+    const docSnap = snapshot.docs[0]
+    const discount = { id: docSnap.id, ...docSnap.data() } as PoolDiscount
+    
+    if (!discount.isActive) {
+      return { valid: false, error: 'Промокод деактивирован' }
+    }
+    
+    if (discount.isUsed) {
+      return { valid: false, error: 'Промокод уже использован' }
+    }
+    
+    if (discount.userId !== userId) {
+      return { valid: false, error: 'Этот промокод принадлежит другому пользователю' }
+    }
+    
+    const now = new Date().toISOString()
+    if (discount.expiresAt < now) {
+      return { valid: false, error: 'Срок действия промокода истёк' }
+    }
+    
+    if (!discount.spheres.includes(sphere as any)) {
+      return { valid: false, error: `Промокод недоступен для выбранной сферы. Доступные сферы: ${discount.spheres.join(', ')}` }
+    }
+    
+    return { valid: true, discount }
+  } catch (error) {
+    console.error('Error checking pool discount code:', error)
     throw error
   }
 }

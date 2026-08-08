@@ -51,6 +51,7 @@ import { CardsAndCrypto } from './pages/CardsAndCrypto'
 import { Communication } from './pages/Communication'
 import { Appeals } from './pages/Appeals'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { PoolDiscounts } from './pages/PoolDiscounts'
 
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AccessBlockScreen } from './components/AccessBlockScreen'
@@ -412,6 +413,14 @@ function App() {
             element={
               <ProtectedRoute adminOnly={true}>
                 <ContourSpheres />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pool-discounts"
+            element={
+              <ProtectedRoute adminOnly={true}>
+                <PoolDiscounts />
               </ProtectedRoute>
             }
           />
