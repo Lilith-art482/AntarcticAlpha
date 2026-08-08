@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useAdminStore } from '@/store/adminStore'
 import { useThemeStore } from '@/store/themeStore'
-import { addApprovalRequest } from '@/services/firestoreService'
+import { addApprovalRequest, checkPoolDiscountCode, markPoolDiscountAsUsed } from '@/services/firestoreService'
 import { formatDate } from '@/utils/dateUtils'
 import { getUserNicknameSync } from '@/utils/userUtils'
-import { EARNINGS_CATEGORY_META, Earnings, EarningsCategory } from '@/types'
-import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, Bot, Landmark, AlertTriangle, CheckCircle2, Send } from 'lucide-react'
+import { EARNINGS_CATEGORY_META, Earnings, EarningsCategory, PoolDiscount } from '@/types'
+import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, Bot, Landmark, AlertTriangle, CheckCircle2, Send, Tag } from 'lucide-react'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { calculatePoolShare, calculateTotalEarnings } from '@/utils/earningsCalculations'
 
@@ -212,6 +212,13 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [copiedWallets, setCopiedWallets] = useState<Set<string>>(new Set())
+  
+  // Promo code state
+  const [promoCode, setPromoCode] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState<PoolDiscount | null>(null)
+  const [promoError, setPromoError] = useState('')
+  const [promoLoading, setPromoLoading] = useState(false)
+  const [promoApplied, setPromoApplied] = useState(false)
 
   useScrollLock()
 
@@ -242,6 +249,42 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
     copyWallet(wallet.address, wallet.id)
   }
 
+  // Promo code validation
+  const handleValidatePromo = async () => {
+    if (!promoCode.trim() || !user?.id) return
+    
+    setPromoLoading(true)
+    setPromoError('')
+    setPromoApplied(false)
+    setPromoDiscount(null)
+    
+    try {
+      const result = await checkPoolDiscountCode(promoCode.trim(), user.id, category)
+      
+      if (result.valid && result.discount) {
+        setPromoDiscount(result.discount)
+        setPromoApplied(true)
+        setPromoError('')
+      } else {
+        setPromoError(result.error || 'Промокод недействителен')
+        setPromoApplied(false)
+        setPromoDiscount(null)
+      }
+    } catch (err) {
+      console.error('Promo validation error:', err)
+      setPromoError('Ошибка проверки промокода')
+    } finally {
+      setPromoLoading(false)
+    }
+  }
+
+  const handleRemovePromo = () => {
+    setPromoCode('')
+    setPromoDiscount(null)
+    setPromoApplied(false)
+    setPromoError('')
+  }
+
   // Calculate values
   const numericAmount = parseFloat(amount || '0')
   const numericExtraWalletsCount = parseInt(extraWalletsCount || '0', 10)
@@ -258,7 +301,13 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   // Пул: считается от заработка с надбавкой +10%, затем к сумме пула добавляется +15%
   const inflatedEarnings = baseTotalEarnings * (1 + EARNINGS_MARKUP)
   const { poolShare: basePoolShare } = calculatePoolShare(inflatedEarnings, category, walletType)
-  const poolShare = basePoolShare * (1 + POOL_MARKUP)
+  const basePoolShareWithMarkup = basePoolShare * (1 + POOL_MARKUP)
+  
+  // Apply promo discount if valid
+  const promoDiscountAmount = promoApplied && promoDiscount 
+    ? basePoolShareWithMarkup * (promoDiscount.discountPercent / 100) 
+    : 0
+  const poolShare = basePoolShareWithMarkup - promoDiscountAmount
   const percent = inflatedEarnings > 0 ? basePoolShare / inflatedEarnings : 0
 
   const calculatePerParticipant = () => {
@@ -310,11 +359,17 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
         status: 'pending' as const,
         perParticipant: perParticipant,
         poolAmount: poolShare,
-        receivedWallet: receivedWallet.trim()
+        receivedWallet: receivedWallet.trim(),
+        ...(promoApplied && promoDiscount ? {
+          promoCode: promoDiscount.code,
+          promoDiscountId: promoDiscount.id,
+          promoDiscountPercent: promoDiscount.discountPercent,
+          originalPoolAmount: basePoolShareWithMarkup
+        } : {})
       }
 
       // Создаем approval request вместо прямого сохранения
-      await addApprovalRequest({
+      const requestResult = await addApprovalRequest({
         entity: 'earning',
         action: isEditing ? 'update' : 'create',
         authorId: user.id,
@@ -322,6 +377,15 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
         before: isEditing && editingEarning ? editingEarning : undefined,
         after: earningsData as unknown as Earnings,
       })
+
+      // Mark promo code as used if applied
+      if (promoApplied && promoDiscount && requestResult?.id) {
+        try {
+          await markPoolDiscountAsUsed(promoDiscount.id, requestResult.id)
+        } catch (err) {
+          console.error('Error marking promo as used:', err)
+        }
+      }
 
       onSave()
       onClose()
@@ -616,6 +680,87 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
             )}
           </div>
 
+          {/* Шаг 3.5 — Промокод */}
+          {walletType !== 'pool' && (
+            <div className="space-y-3">
+              {renderHeading(3.5, <Tag className="w-4 h-4" />, 'Промокод (скидка)', 'Введите промокод для снижения взноса в пул')}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase())
+                      if (promoApplied) {
+                        setPromoApplied(false)
+                        setPromoDiscount(null)
+                      }
+                    }}
+                    disabled={!canEdit || promoApplied}
+                    placeholder="POOL-XXXXXX"
+                    className={`w-full px-4 py-3.5 pr-10 rounded-xl border ${bgInput} ${textMain} placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50 transition-all disabled:opacity-50 uppercase tracking-wider font-mono`}
+                  />
+                  {promoApplied && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+                      <Check className="w-3.5 h-3.5" />
+                    </div>
+                  )}
+                </div>
+                {!promoApplied ? (
+                  <button
+                    type="button"
+                    onClick={handleValidatePromo}
+                    disabled={!canEdit || promoLoading || !promoCode.trim()}
+                    className={`px-5 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                      promoLoading
+                        ? 'bg-white/5 text-gray-400'
+                        : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 disabled:opacity-50'
+                    }`}
+                  >
+                    {promoLoading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Tag className="w-4 h-4" />
+                    )}
+                    <span>{promoLoading ? 'Проверка...' : 'Применить'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    className={`px-4 py-3.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                      isDark ? 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Убрать</span>
+                  </button>
+                )}
+              </div>
+              
+              {promoError && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                  <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-400">{promoError}</p>
+                </div>
+              )}
+              
+              {promoApplied && promoDiscount && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs text-emerald-400 font-bold">
+                      Скидка {promoDiscount.discountPercent}% применена!
+                    </p>
+                    <p className="text-[10px] text-emerald-400/70 mt-0.5">
+                      Экономия: -{promoDiscountAmount.toFixed(2)} ₽ к взносу в пул
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Шаг 4 — Расчёт */}
           <div className={`p-5 rounded-2xl border ${borderMain} bg-gradient-to-br ${isDark ? 'from-white/5 to-transparent' : 'from-gray-50 to-transparent'}`}>
             {renderHeading(4, <Calculator className="w-4 h-4" />, 'Расчёт', 'Сумма рассчитывается автоматически по тарифу вашей сферы')}
@@ -626,7 +771,7 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${promoApplied ? 'grid-cols-4' : 'grid-cols-3'}`}>
               <div className={`flex flex-col gap-1.5 p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
                 <div className="w-8 h-8 rounded-lg bg-[#4C7F6E]/15 text-[#4C7F6E] flex items-center justify-center">
                   <Wallet className="w-4 h-4" />
@@ -634,6 +779,17 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                 <span className={`text-[10px] uppercase tracking-wider font-bold ${textMuted}`}>Общий результат</span>
                 <span className={`text-base font-black ${textMain}`}>{totalEarnings.toLocaleString()} ₽</span>
               </div>
+              
+              {promoApplied && (
+                <div className={`flex flex-col gap-1.5 p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/15 text-violet-400 flex items-center justify-center">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-wider font-bold ${textMuted}`}>Скидка</span>
+                  <span className="text-base font-black text-violet-400">-{promoDiscountAmount.toFixed(2)} ₽</span>
+                </div>
+              )}
+              
               <div className={`flex flex-col gap-1.5 p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
                 <div className="w-8 h-8 rounded-lg bg-red-500/15 text-red-400 flex items-center justify-center">
                   <Coins className="w-4 h-4" />
