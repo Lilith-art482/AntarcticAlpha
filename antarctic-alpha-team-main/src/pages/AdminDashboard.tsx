@@ -1,4 +1,4 @@
-import { Shield, Users, MessageSquare, FileText, CheckCircle2, Wallet, Settings, TrendingUp, MessageSquarePlus, ChevronRight } from 'lucide-react'
+import { Shield, Users, MessageSquare, FileText, CheckCircle2, Wallet, Settings, TrendingUp, MessageSquarePlus, ChevronRight, Tag } from 'lucide-react'
 import { useAdminStore, AdminSection } from '@/store/adminStore'
 import { AdminProtectedLink } from '@/components/AdminProtectedLink'
 import { useThemeStore } from '@/store/themeStore'
@@ -93,6 +93,15 @@ const adminCards = [
     section: 'contour-spheres' as AdminSection,
     gradient: 'from-orange-500/20 to-orange-600/10',
     borderHover: 'hover:border-orange-500/40',
+  },
+  {
+    path: '/pool-discounts',
+    label: 'Pool Скидки',
+    description: 'Промокоды: управление скидками на взносы в пул для участников',
+    icon: Tag,
+    section: 'pool-discounts' as AdminSection,
+    gradient: 'from-violet-500/20 to-violet-600/10',
+    borderHover: 'hover:border-violet-500/40',
   },
 ]
 
