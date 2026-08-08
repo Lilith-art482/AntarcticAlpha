@@ -54,84 +54,95 @@ const CATEGORY_ICONS: Record<EarningsCategory, React.ReactNode> = {
 
 interface PoolWallet {
   id: string
-  symbol: string
   name: string
   network: string
   networkChip: string
   address: string
-  badge: string
+  icon: string
+  networkIcon?: string
+  tile: string
+  accent: string
   hint: string
 }
 
 const CRYPTO_WALLETS: PoolWallet[] = [
   {
     id: 'usdt-ton',
-    symbol: 'USDT',
     name: 'USDT (TON)',
     network: 'TON',
     networkChip: 'bg-sky-500/10 text-sky-500 border-sky-500/25',
     address: 'UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj',
-    badge: 'from-emerald-400 to-teal-600',
+    icon: '/usdt.png',
+    networkIcon: '/ton.svg',
+    tile: 'from-emerald-400/30 to-teal-500/10',
+    accent: 'from-emerald-400 to-teal-500',
     hint: 'Универсальный стейблкоин — рекомендуемый вариант для большинства переводов',
   },
   {
     id: 'usdc-polygon',
-    symbol: 'USDC',
     name: 'USDC (Polygon)',
     network: 'Polygon',
     networkChip: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/25',
     address: '0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731',
-    badge: 'from-blue-400 to-indigo-600',
+    icon: '/usdc.jpg',
+    networkIcon: '/polygon.png',
+    tile: 'from-blue-400/30 to-indigo-500/10',
+    accent: 'from-blue-400 to-indigo-500',
     hint: 'Стейблкоин в сети Polygon — низкие комиссии и быстрые переводы',
   },
   {
     id: 'sol',
-    symbol: 'SOL',
     name: 'SOL',
     network: 'Solana',
     networkChip: 'bg-violet-500/10 text-violet-500 border-violet-500/25',
     address: 'ARcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE',
-    badge: 'from-violet-400 to-purple-600',
+    icon: '/sol.webp',
+    tile: 'from-violet-400/30 to-purple-500/10',
+    accent: 'from-violet-400 to-purple-500',
     hint: 'Используйте, если прибыль получена в Solana',
   },
   {
     id: 'gram',
-    symbol: 'GRAM',
     name: 'GRAM',
     network: 'TON',
     networkChip: 'bg-sky-500/10 text-sky-500 border-sky-500/25',
     address: 'UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj',
-    badge: 'from-sky-400 to-blue-600',
+    icon: '/ton.svg',
+    tile: 'from-sky-400/30 to-blue-500/10',
+    accent: 'from-sky-400 to-blue-500',
     hint: 'Токен экосистемы Telegram (сеть TON)',
   },
   {
     id: 'eth',
-    symbol: 'ETH',
     name: 'ETH (ERC20)',
     network: 'ERC-20',
     networkChip: 'bg-slate-500/10 text-slate-500 border-slate-500/25',
     address: '0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731',
-    badge: 'from-slate-400 to-slate-600',
+    icon: '/eth.webp',
+    tile: 'from-slate-400/30 to-slate-600/10',
+    accent: 'from-slate-400 to-slate-600',
     hint: 'Эфир в сети Ethereum (ERC-20)',
   },
   {
     id: 'bnb',
-    symbol: 'BNB',
     name: 'BNB (BEP20)',
     network: 'BEP-20',
     networkChip: 'bg-amber-500/10 text-amber-500 border-amber-500/25',
     address: '0x7aBF66CBD4734ddfe093dD7E065beada94A11a95',
-    badge: 'from-yellow-400 to-amber-600',
+    icon: '/bnb.webp',
+    tile: 'from-amber-400/30 to-yellow-500/10',
+    accent: 'from-amber-400 to-yellow-500',
     hint: 'BNB в сети BNB Chain (BEP-20)',
   },
   {
     id: 'btc',
-    symbol: 'BTC',
     name: 'BTC',
     network: 'Bitcoin',
     networkChip: 'bg-orange-500/10 text-orange-500 border-orange-500/25',
     address: 'bc1qgycajytzlhz9yywjm470nvmzrmj7uln3gyzc2a',
-    badge: 'from-orange-400 to-orange-600',
+    icon: '/btc.webp',
+    tile: 'from-orange-400/30 to-red-500/10',
+    accent: 'from-orange-400 to-red-500',
     hint: 'Биткоин в основной сети Bitcoin',
   },
 ]
@@ -139,22 +150,26 @@ const CRYPTO_WALLETS: PoolWallet[] = [
 const FIAT_WALLETS: PoolWallet[] = [
   {
     id: 'fiat-usdt-ton',
-    symbol: 'USDT',
     name: 'USDT (TON)',
     network: 'TON',
     networkChip: 'bg-sky-500/10 text-sky-500 border-sky-500/25',
     address: 'UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj',
-    badge: 'from-emerald-400 to-teal-600',
+    icon: '/usdt.png',
+    networkIcon: '/ton.svg',
+    tile: 'from-emerald-400/30 to-teal-500/10',
+    accent: 'from-emerald-400 to-teal-500',
     hint: 'Лучший вариант после конвертации фиата в USDT',
   },
   {
     id: 'fiat-usdt-tron',
-    symbol: 'USDT',
     name: 'USDT (TRON)',
     network: 'TRC-20',
     networkChip: 'bg-red-500/10 text-red-500 border-red-500/25',
     address: 'TUpjccuJ34dSM9tqDhd5FhhQbPJWqGgjJr',
-    badge: 'from-red-400 to-rose-600',
+    icon: '/usdt.png',
+    networkIcon: '/tron.png',
+    tile: 'from-red-400/30 to-rose-500/10',
+    accent: 'from-red-400 to-rose-500',
     hint: 'Альтернативный вариант — USDT в сети TRON',
   },
 ]
@@ -351,18 +366,26 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
     return (
       <div
         key={wallet.id}
-        className={`rounded-2xl border p-3.5 transition-all duration-200 ${
+        className={`group relative overflow-hidden rounded-2xl border p-4 transition-all duration-200 ${
           isSelected
-            ? 'border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+            ? 'border-emerald-500/60 bg-gradient-to-br from-emerald-500/15 via-[#4C7F6E]/5 to-transparent ring-1 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
             : isDark
-              ? 'bg-white/5 border-white/10 hover:border-[#4C7F6E]/40'
-              : 'bg-white border-gray-200 hover:border-[#4C7F6E]/40 shadow-sm'
+              ? 'border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] hover:border-[#4C7F6E]/50 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#4C7F6E]/10'
+              : 'border-gray-200 bg-gradient-to-b from-white to-gray-50/60 hover:border-[#4C7F6E]/40 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#4C7F6E]/10'
         }`}
       >
+        {/* Top accent */}
+        <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${wallet.accent} ${isSelected ? 'opacity-100' : 'opacity-30 group-hover:opacity-70'}`} />
+
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${wallet.badge} flex items-center justify-center flex-shrink-0 shadow-md`}>
-              <span className="text-[8px] font-black text-white tracking-tight">{wallet.symbol}</span>
+            <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br ${wallet.tile} flex items-center justify-center flex-shrink-0 ring-1 ring-white/10 shadow-inner`}>
+              <img src={wallet.icon} alt={wallet.name} loading="lazy" className="w-7 h-7 object-contain drop-shadow-md" />
+              {wallet.networkIcon && (
+                <div className={`absolute -right-1.5 -bottom-1.5 w-5 h-5 rounded-full flex items-center justify-center shadow-md ${isDark ? 'bg-[#0f1a28]' : 'bg-white'} border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                  <img src={wallet.networkIcon} alt={wallet.network} loading="lazy" className="w-3 h-3 object-contain" />
+                </div>
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -372,47 +395,47 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
               <p className={`text-[10px] leading-snug ${textMuted} mt-0.5`}>{wallet.hint}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => copyWallet(wallet.address, wallet.id)}
-              title="Скопировать адрес"
-              className={`p-2 rounded-lg transition-all ${
-                isCopied
-                  ? 'bg-emerald-500/20 text-emerald-500'
-                  : isDark ? 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-              }`}
-            >
-              {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectWallet(wallet)}
-              disabled={!canEdit}
-              className={`px-2.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed ${
-                isSelected
-                  ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
-                  : isDark ? 'bg-white/10 text-gray-300 hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {isSelected ? <Check className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-              <span>{isSelected ? 'Выбрано' : 'Выбрать'}</span>
-            </button>
-          </div>
+          {isSelected && (
+            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shadow-md shadow-emerald-500/40">
+              <Check className="w-3 h-3 text-white" />
+            </div>
+          )}
         </div>
+
+        <div className={`mt-3 flex items-center gap-2 pl-3 pr-1.5 py-2 rounded-xl border transition-all ${
+          isCopied
+            ? 'bg-emerald-500/15 border-emerald-500/30'
+            : isDark ? 'bg-black/40 border-white/10 group-hover:border-white/20' : 'bg-gray-900/[0.04] border-gray-200 group-hover:border-gray-300'
+        }`}>
+          <code className={`flex-1 min-w-0 break-all text-[10px] font-mono leading-snug ${textMain} opacity-70`}>{wallet.address}</code>
+          <button
+            type="button"
+            onClick={() => copyWallet(wallet.address, wallet.id)}
+            title="Скопировать адрес"
+            className={`p-1.5 rounded-lg transition-all flex-shrink-0 ${
+              isCopied
+                ? 'bg-emerald-500/20 text-emerald-500'
+                : isDark ? 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+            }`}
+          >
+            {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
         <button
           type="button"
-          onClick={() => copyWallet(wallet.address, wallet.id)}
-          title="Скопировать адрес"
-          className="mt-3 w-full text-left"
+          onClick={() => handleSelectWallet(wallet)}
+          disabled={!canEdit}
+          className={`mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+            isSelected
+              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30'
+              : isDark
+                ? 'bg-white/[0.06] text-gray-300 border border-white/10 hover:bg-white/[0.12]'
+                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+          }`}
         >
-          <code className={`block w-full break-all text-[10px] font-mono leading-snug px-3 py-2.5 rounded-xl text-left transition-all ${
-            isCopied
-              ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
-              : isDark ? 'bg-black/30 text-gray-300 border border-white/5 hover:border-white/15' : 'bg-gray-100 text-gray-700 border border-gray-200 hover:border-gray-300'
-          }`}>
-            {wallet.address}
-          </code>
+          {isSelected ? <Check className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+          <span>{isSelected ? 'Выбрано' : 'Выбрать'}</span>
         </button>
       </div>
     )
