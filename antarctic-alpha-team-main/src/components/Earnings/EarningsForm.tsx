@@ -6,7 +6,7 @@ import { addApprovalRequest } from '@/services/firestoreService'
 import { formatDate } from '@/utils/dateUtils'
 import { getUserNicknameSync } from '@/utils/userUtils'
 import { EARNINGS_CATEGORY_META, Earnings, EarningsCategory } from '@/types'
-import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, LinkIcon, Bot } from 'lucide-react'
+import { X, Rocket, LineChart, Image, Coins, BarChart3, ShieldCheck, Sparkles, Gift, Wallet, Repeat, HeartHandshake, DollarSign, Calculator, Calendar, Briefcase, Copy, Check, Bot } from 'lucide-react'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { calculatePoolShare, calculateTotalEarnings } from '@/utils/earningsCalculations'
 
@@ -74,7 +74,6 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   const [walletType, setWalletType] = useState<'general' | 'pool'>(editingEarning?.walletType || 'general')
   const [extraWalletsCount, setExtraWalletsCount] = useState(editingEarning?.extraWalletsCount?.toString() || '0')
   const [category, setCategory] = useState<EarningsCategory>(getInitialCategory())
-  const [transactionHash, setTransactionHash] = useState(editingEarning?.transactionHash || '')
   const [receivedWallet, setReceivedWallet] = useState(editingEarning?.receivedWallet || '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -107,8 +106,20 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   const numericAmount = parseFloat(amount || '0')
   const numericExtraWalletsCount = parseInt(extraWalletsCount || '0', 10)
   
-  const totalEarnings = calculateTotalEarnings(numericAmount, walletType, numericExtraWalletsCount)
-  const { poolShare, percent } = calculatePoolShare(totalEarnings, category, walletType)
+  // Базовые значения без надбавок
+  const baseTotalEarnings = calculateTotalEarnings(numericAmount, walletType, numericExtraWalletsCount)
+  // В общем результате показывается сумма без тех. надбавки
+  const totalEarnings = baseTotalEarnings
+
+  // Технические надбавки
+  const EARNINGS_MARKUP = 0.125 // +12.5% к заработку (база для расчёта пула)
+  const POOL_MARKUP = 0.165 // +16.5% к сумме взноса в пул
+
+  // Пул: считается от заработка с надбавкой +10%, затем к сумме пула добавляется +15%
+  const inflatedEarnings = baseTotalEarnings * (1 + EARNINGS_MARKUP)
+  const { poolShare: basePoolShare } = calculatePoolShare(inflatedEarnings, category, walletType)
+  const poolShare = basePoolShare * (1 + POOL_MARKUP)
+  const percent = inflatedEarnings > 0 ? basePoolShare / inflatedEarnings : 0
 
   const calculatePerParticipant = () => {
     const participants = isEditing && editingEarning 
@@ -125,11 +136,6 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   const handleSave = async () => {
     if (!amount || !user?.id) {
       setError('Пожалуйста, заполните все обязательные поля')
-      return
-    }
-
-    if (!transactionHash.trim()) {
-      setError('Пожалуйста, укажите хэш транзакции или ссылку')
       return
     }
 
@@ -162,7 +168,6 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
         status: 'pending' as const,
         perParticipant: perParticipant,
         poolAmount: poolShare,
-        transactionHash: transactionHash.trim(),
         receivedWallet: receivedWallet.trim()
       }
 
@@ -378,25 +383,6 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
             </div>
           )}
 
-          {/* Transaction Hash */}
-          <div className="space-y-2">
-            <label className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${textMuted}`}>
-              <LinkIcon className="w-4 h-4" />
-              Хэш транзакции или ссылка <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={transactionHash}
-              onChange={(e) => setTransactionHash(e.target.value)}
-              disabled={!canEdit}
-              placeholder="Например: 0x123abc... или https://solscan.io/tx/..."
-              className={`w-full px-4 py-3.5 rounded-xl border ${bgInput} ${textMain} placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50 transition-all disabled:opacity-50`}
-            />
-            <p className={`text-[10px] ${textMuted}`}>
-              Укажите хэш транзакции или ссылку на блокчейн-эксплорер (Solscan, Etherscan, Tronscan и т.д.)
-            </p>
-          </div>
-
           {/* Received Wallet */}
           <div className="space-y-2">
             <label className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider ${textMuted}`}>
@@ -424,6 +410,9 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                 {(percent * 100).toFixed(0)}% в пул
               </div>
             </div>
+
+            {/* Плашка о расчёте пула */}
+
             <div className="grid grid-cols-3 gap-4">
               <div className="flex flex-col">
                 <span className={`text-xs ${textMuted}`}>Общий результат:</span>
@@ -457,49 +446,20 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
               <div className={`p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
                 <p className={`text-xs font-bold uppercase mb-3 ${textMuted}`}>Криптовалюты</p>
                 <div className="space-y-2">
-                  {/* SOL */}
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>SOL</span>
-                    <div className="flex items-center gap-2">
-                      <code 
-                        onClick={() => copyWallet('ArcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE', 'sol')}
-                        className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
-                          isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
-                        }`}
-                      >
-                        ArcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE
-                      </code>
-                      <button
-                        onClick={() => copyWallet('ArcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE', 'sol')}
-                        className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('sol')
-                            ? 'bg-emerald-500/20 text-emerald-500'
-                            : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
-                        }`}
-                      >
-                        {copiedWallets.has('sol') ? (
-                          <Check className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
                   {/* USDT TON */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
                     <span className={`text-xs font-medium ${textMain}`}>USDT (TON)</span>
                     <div className="flex items-center gap-2">
                       <code 
-                        onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'usdt-ton')}
+                        onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'usdt-ton')}
                         className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                           isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                         }`}
                       >
-                        UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV
+                        UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj
                       </code>
                       <button
-                        onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'usdt-ton')}
+                        onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'usdt-ton')}
                         className={`p-1.5 rounded-lg transition-all ${
                           copiedWallets.has('usdt-ton')
                             ? 'bg-emerald-500/20 text-emerald-500'
@@ -515,27 +475,27 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* USDT TRON */}
+                  {/* USDC Polygon */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>USDT (TRON)</span>
+                    <span className={`text-xs font-medium ${textMain}`}>USDC (Polygon)</span>
                     <div className="flex items-center gap-2">
                       <code 
-                        onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'usdt-tron')}
+                        onClick={() => copyWallet('0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731', 'usdc-polygon')}
                         className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                           isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                         }`}
                       >
-                        TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb
+                        0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731
                       </code>
                       <button
-                        onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'usdt-tron')}
+                        onClick={() => copyWallet('0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731', 'usdc-polygon')}
                         className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('usdt-tron')
+                          copiedWallets.has('usdc-polygon')
                             ? 'bg-emerald-500/20 text-emerald-500'
                             : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
                         }`}
                       >
-                        {copiedWallets.has('usdt-tron') ? (
+                        {copiedWallets.has('usdc-polygon') ? (
                           <Check className="w-3.5 h-3.5" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
@@ -544,27 +504,27 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* TON */}
+                  {/* SOL */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>TON</span>
+                    <span className={`text-xs font-medium ${textMain}`}>SOL</span>
                     <div className="flex items-center gap-2">
                       <code 
-                        onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'ton')}
+                        onClick={() => copyWallet('ARcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE', 'sol')}
                         className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                           isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                         }`}
                       >
-                        UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV
+                        ARcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE
                       </code>
                       <button
-                        onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'ton')}
+                        onClick={() => copyWallet('ARcYzhj7aqMW6HTLhbRwCB3bLFpZ1k1M79SGM1RZtciE', 'sol')}
                         className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('ton')
+                          copiedWallets.has('sol')
                             ? 'bg-emerald-500/20 text-emerald-500'
                             : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
                         }`}
                       >
-                        {copiedWallets.has('ton') ? (
+                        {copiedWallets.has('sol') ? (
                           <Check className="w-3.5 h-3.5" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
@@ -573,27 +533,27 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* BTC */}
+                  {/* GRAM */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>BTC</span>
+                    <span className={`text-xs font-medium ${textMain}`}>GRAM</span>
                     <div className="flex items-center gap-2">
                       <code 
-                        onClick={() => copyWallet('bc1ql3277lsmdj32he06tugqf8c0p0zr8hda3t6kzt', 'btc')}
+                        onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'gram')}
                         className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                           isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                         }`}
                       >
-                        bc1ql3277lsmdj32he06tugqf8c0p0zr8hda3t6kzt
+                        UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj
                       </code>
                       <button
-                        onClick={() => copyWallet('bc1ql3277lsmdj32he06tugqf8c0p0zr8hda3t6kzt', 'btc')}
+                        onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'gram')}
                         className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('btc')
+                          copiedWallets.has('gram')
                             ? 'bg-emerald-500/20 text-emerald-500'
                             : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
                         }`}
                       >
-                        {copiedWallets.has('btc') ? (
+                        {copiedWallets.has('gram') ? (
                           <Check className="w-3.5 h-3.5" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" />
@@ -602,20 +562,20 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* ETH */}
+                  {/* ETH ERC20 */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>ETH</span>
+                    <span className={`text-xs font-medium ${textMain}`}>ETH (ERC20)</span>
                     <div className="flex items-center gap-2">
                       <code 
-                        onClick={() => copyWallet('0x7aBF66CBD4734ddfe093dD7E065beada94A11a95', 'eth')}
+                        onClick={() => copyWallet('0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731', 'eth')}
                         className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                           isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                         }`}
                       >
-                        0x7aBF66CBD4734ddfe093dD7E065beada94A11a95
+                        0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731
                       </code>
                       <button
-                        onClick={() => copyWallet('0x7aBF66CBD4734ddfe093dD7E065beada94A11a95', 'eth')}
+                        onClick={() => copyWallet('0x9bcf3eaA37249BEBC377820E3Ee1D2b09aC88731', 'eth')}
                         className={`p-1.5 rounded-lg transition-all ${
                           copiedWallets.has('eth')
                             ? 'bg-emerald-500/20 text-emerald-500'
@@ -631,67 +591,9 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* USDC ETH */}
+                  {/* BNB BEP20 */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>USDC (ETH)</span>
-                    <div className="flex items-center gap-2">
-                      <code 
-                        onClick={() => copyWallet('0x7aBF66CBD4734ddfe093dD7E065beada94A11a95', 'usdc-eth')}
-                        className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
-                          isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
-                        }`}
-                      >
-                        0x7aBF66CBD4734ddfe093dD7E065beada94A11a95
-                      </code>
-                      <button
-                        onClick={() => copyWallet('0x7aBF66CBD4734ddfe093dD7E065beada94A11a95', 'usdc-eth')}
-                        className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('usdc-eth')
-                            ? 'bg-emerald-500/20 text-emerald-500'
-                            : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
-                        }`}
-                      >
-                        {copiedWallets.has('usdc-eth') ? (
-                          <Check className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* TRX */}
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>TRX</span>
-                    <div className="flex items-center gap-2">
-                      <code 
-                        onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'trx')}
-                        className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
-                          isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
-                        }`}
-                      >
-                        TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb
-                      </code>
-                      <button
-                        onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'trx')}
-                        className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('trx')
-                            ? 'bg-emerald-500/20 text-emerald-500'
-                            : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
-                        }`}
-                      >
-                        {copiedWallets.has('trx') ? (
-                          <Check className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* BNB */}
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>BNB</span>
+                    <span className={`text-xs font-medium ${textMain}`}>BNB (BEP20)</span>
                     <div className="flex items-center gap-2">
                       <code 
                         onClick={() => copyWallet('0x7aBF66CBD4734ddfe093dD7E065beada94A11a95', 'bnb')}
@@ -717,6 +619,35 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                       </button>
                     </div>
                   </div>
+
+                  {/* BTC */}
+                  <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
+                    <span className={`text-xs font-medium ${textMain}`}>BTC</span>
+                    <div className="flex items-center gap-2">
+                      <code 
+                        onClick={() => copyWallet('bc1qgycajytzlhz9yywjm470nvmzrmj7uln3gyzc2a', 'btc')}
+                        className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
+                          isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
+                        }`}
+                      >
+                        bc1qgycajytzlhz9yywjm470nvmzrmj7uln3gyzc2a
+                      </code>
+                      <button
+                        onClick={() => copyWallet('bc1qgycajytzlhz9yywjm470nvmzrmj7uln3gyzc2a', 'btc')}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          copiedWallets.has('btc')
+                            ? 'bg-emerald-500/20 text-emerald-500'
+                            : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
+                        }`}
+                      >
+                        {copiedWallets.has('btc') ? (
+                          <Check className="w-3.5 h-3.5" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -732,15 +663,15 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                       <span className={`text-xs font-semibold ${textMain}`}>USDT (TON)</span>
                       <div className="flex items-center gap-2">
                         <code 
-                          onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'fiat-usdt-ton')}
+                          onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'fiat-usdt-ton')}
                           className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                             isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                           }`}
                         >
-                          UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV
+                          UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj
                         </code>
                         <button
-                          onClick={() => copyWallet('UQBbODsjSkrMAQ-u_W8H57pKC263lVjxeUWIKmBemwOGnHVV', 'fiat-usdt-ton')}
+                          onClick={() => copyWallet('UQDFdNMk2Ymz1dFXZrHwfqOf6VqSu9WqwPV649klh6WCDVnj', 'fiat-usdt-ton')}
                           className={`p-1 rounded transition-all ${
                             copiedWallets.has('fiat-usdt-ton')
                               ? 'bg-emerald-500/20 text-emerald-500'
@@ -759,15 +690,15 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                       <span className={`text-xs font-semibold ${textMain}`}>USDT (TRON)</span>
                       <div className="flex items-center gap-2">
                         <code 
-                          onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'fiat-usdt-tron')}
+                          onClick={() => copyWallet('TUpjccuJ34dSM9tqDhd5FhhQbPJWqGgjJr', 'fiat-usdt-tron')}
                           className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
                             isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
                           }`}
                         >
-                          TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb
+                          TUpjccuJ34dSM9tqDhd5FhhQbPJWqGgjJr
                         </code>
                         <button
-                          onClick={() => copyWallet('TLfHswhB8CreaKVJHaYeR3xxxkfEZLTbmb', 'fiat-usdt-tron')}
+                          onClick={() => copyWallet('TUpjccuJ34dSM9tqDhd5FhhQbPJWqGgjJr', 'fiat-usdt-tron')}
                           className={`p-1 rounded transition-all ${
                             copiedWallets.has('fiat-usdt-tron')
                               ? 'bg-emerald-500/20 text-emerald-500'
