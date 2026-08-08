@@ -660,35 +660,6 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
                     </div>
                   </div>
 
-                  {/* USDC SOL */}
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
-                    <span className={`text-xs font-medium ${textMain}`}>USDC (SOL)</span>
-                    <div className="flex items-center gap-2">
-                      <code 
-                        onClick={() => copyWallet('7cGdsTHxFhxEiT92g4CFsoXbvJHic2cWuiWSB4pJRYgE', 'usdc-sol')}
-                        className={`text-[10px] font-mono px-2 py-1 rounded cursor-pointer transition-all ${
-                          isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-200 hover:bg-gray-300'
-                        }`}
-                      >
-                        7cGdsTHxFhxEiT92g4CFsoXbvJHic2cWuiWSB4pJRYgE
-                      </code>
-                      <button
-                        onClick={() => copyWallet('7cGdsTHxFhxEiT92g4CFsoXbvJHic2cWuiWSB4pJRYgE', 'usdc-sol')}
-                        className={`p-1.5 rounded-lg transition-all ${
-                          copiedWallets.has('usdc-sol')
-                            ? 'bg-emerald-500/20 text-emerald-500'
-                            : isDark ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-300 text-gray-500'
-                        }`}
-                      >
-                        {copiedWallets.has('usdc-sol') ? (
-                          <Check className="w-3.5 h-3.5" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
                   {/* TRX */}
                   <div className={`flex items-center justify-between p-2.5 rounded-lg ${isDark ? 'bg-black/20' : 'bg-gray-50'}`}>
                     <span className={`text-xs font-medium ${textMain}`}>TRX</span>
