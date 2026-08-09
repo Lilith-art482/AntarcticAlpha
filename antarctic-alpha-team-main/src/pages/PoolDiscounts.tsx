@@ -57,12 +57,22 @@ export const PoolDiscounts = () => {
   // Form state
   const [selectedUserId, setSelectedUserId] = useState('')
   const [discountPercent, setDiscountPercent] = useState('')
+  const [actualDiscountPercent, setActualDiscountPercent] = useState('')
   const [selectedSpheres, setSelectedSpheres] = useState<PoolDiscountSphere[]>([])
   const [durationDays, setDurationDays] = useState(7)
   const [customDuration, setCustomDuration] = useState('')
   const [isCustomDuration, setIsCustomDuration] = useState(false)
   const [formError, setFormError] = useState('')
   const [formLoading, setFormLoading] = useState(false)
+
+  // Edit state
+  const [editingDiscount, setEditingDiscount] = useState<PoolDiscount | null>(null)
+  const [editDiscountPercent, setEditDiscountPercent] = useState('')
+  const [editActualDiscountPercent, setEditActualDiscountPercent] = useState('')
+  const [editExpiresAt, setEditExpiresAt] = useState('')
+  const [editSpheres, setEditSpheres] = useState<PoolDiscountSphere[]>([])
+  const [editLoading, setEditLoading] = useState(false)
+  const [editError, setEditError] = useState('')
 
   const headingColor = theme === 'dark' ? 'text-white' : 'text-gray-900'
   const labelColor = theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
@@ -113,7 +123,13 @@ export const PoolDiscounts = () => {
     
     const percent = parseFloat(discountPercent)
     if (isNaN(percent) || percent <= 0 || percent > 100) {
-      setFormError('Процент скидки должен быть от 1% до 100%')
+      setFormError('Скидка для пользователя должна быть от 1% до 100%')
+      return
+    }
+
+    const actualPercent = parseFloat(actualDiscountPercent)
+    if (isNaN(actualPercent) || actualPercent <= 0 || actualPercent > 100) {
+      setFormError('Реальная скидка должна быть от 1% до 100%')
       return
     }
     
@@ -139,6 +155,7 @@ export const PoolDiscounts = () => {
         userName: user?.name || '',
         code: generateCode(),
         discountPercent: percent,
+        actualDiscountPercent: actualPercent,
         spheres: selectedSpheres,
         expiresAt: expiresAt.toISOString(),
         isActive: true,
@@ -178,9 +195,80 @@ export const PoolDiscounts = () => {
     }
   }
 
+  const startEditing = (discount: PoolDiscount) => {
+    setEditingDiscount(discount)
+    setEditDiscountPercent(discount.discountPercent.toString())
+    setEditActualDiscountPercent(discount.actualDiscountPercent.toString())
+    setEditExpiresAt(discount.expiresAt.slice(0, 16)) // Format for datetime-local input
+    setEditSpheres([...discount.spheres])
+    setEditError('')
+  }
+
+  const cancelEditing = () => {
+    setEditingDiscount(null)
+    setEditDiscountPercent('')
+    setEditActualDiscountPercent('')
+    setEditExpiresAt('')
+    setEditSpheres([])
+    setEditError('')
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingDiscount) return
+    setEditError('')
+
+    const percent = parseFloat(editDiscountPercent)
+    if (isNaN(percent) || percent <= 0 || percent > 100) {
+      setEditError('Скидка для пользователя должна быть от 1% до 100%')
+      return
+    }
+
+    const actualPercent = parseFloat(editActualDiscountPercent)
+    if (isNaN(actualPercent) || actualPercent <= 0 || actualPercent > 100) {
+      setEditError('Реальная скидка должна быть от 1% до 100%')
+      return
+    }
+
+    if (editSpheres.length === 0) {
+      setEditError('Выберите хотя бы одну сферу')
+      return
+    }
+
+    if (!editExpiresAt) {
+      setEditError('Укажите срок действия')
+      return
+    }
+
+    setEditLoading(true)
+    try {
+      await updatePoolDiscount(editingDiscount.id, {
+        discountPercent: percent,
+        actualDiscountPercent: actualPercent,
+        spheres: editSpheres,
+        expiresAt: new Date(editExpiresAt).toISOString()
+      })
+      cancelEditing()
+      await loadDiscounts()
+    } catch (error) {
+      console.error('Error updating discount:', error)
+      setEditError('Ошибка при сохранении')
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const toggleEditSphere = (sphere: PoolDiscountSphere) => {
+    setEditSpheres(prev => 
+      prev.includes(sphere) 
+        ? prev.filter(s => s !== sphere)
+        : [...prev, sphere]
+    )
+  }
+
   const resetForm = () => {
     setSelectedUserId('')
     setDiscountPercent('')
+    setActualDiscountPercent('')
     setSelectedSpheres([])
     setDurationDays(7)
     setCustomDuration('')
@@ -281,9 +369,9 @@ export const PoolDiscounts = () => {
             </select>
           </div>
 
-          {/* Discount Percent */}
+          {/* Discount Percent (visible to user) */}
           <div className="space-y-2">
-            <label className={`text-sm font-bold ${labelColor}`}>Размер скидки (%)</label>
+            <label className={`text-sm font-bold ${labelColor}`}>Скидка для пользователя (%)</label>
             <div className="relative">
               <input
                 type="number"
@@ -291,13 +379,33 @@ export const PoolDiscounts = () => {
                 onChange={(e) => setDiscountPercent(e.target.value)}
                 min="1"
                 max="100"
-                placeholder="например, 25"
+                placeholder="например, 50"
                 className={`w-full px-4 py-3 pr-10 rounded-xl border ${inputBg} ${headingColor} placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50`}
               />
               <Percent className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
             <p className={`text-xs ${labelColor}`}>
-              Скидка применяется к сумме взноса в пул
+              Процент, который увидит пользователь при вводе промокода
+            </p>
+          </div>
+
+          {/* Actual Discount Percent (applied in calculation) */}
+          <div className="space-y-2">
+            <label className={`text-sm font-bold ${labelColor}`}>Реальная скидка (%)</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={actualDiscountPercent}
+                onChange={(e) => setActualDiscountPercent(e.target.value)}
+                min="1"
+                max="100"
+                placeholder="например, 20"
+                className={`w-full px-4 py-3 pr-10 rounded-xl border ${inputBg} ${headingColor} placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50`}
+              />
+              <Percent className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
+            <p className={`text-xs ${labelColor}`}>
+              Процент, который реально применяется при расчёте суммы взноса в пул
             </p>
           </div>
 
@@ -446,7 +554,7 @@ export const PoolDiscounts = () => {
                       </span>
                     </div>
                     <div className={`text-xs ${labelColor} mt-0.5`}>
-                      {discount.discountPercent}% · {discount.spheres.length} сфер · до {formatDate(discount.expiresAt)}
+                      {discount.discountPercent}% (отображение) / {discount.actualDiscountPercent}% (реальная) · {discount.spheres.length} сфер · до {formatDate(discount.expiresAt)}
                     </div>
                   </div>
 
@@ -461,58 +569,173 @@ export const PoolDiscounts = () => {
                 {/* Expanded Details */}
                 {isExpanded && (
                   <div className={`px-4 pb-4 border-t ${borderColor} space-y-3 pt-3`}>
-                    {/* Spheres List */}
-                    <div>
-                      <p className={`text-xs font-bold ${labelColor} mb-2`}>Сферы:</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {discount.spheres.map(s => (
-                          <span key={s} className="px-2 py-1 rounded-lg bg-[#4C7F6E]/10 text-[#4C7F6E] text-[10px] font-bold">
-                            {EARNINGS_CATEGORY_META[s]?.shortName || s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                    {/* Edit Form */}
+                    {editingDiscount?.id === discount.id ? (
+                      <div className="space-y-4">
+                        <h4 className={`text-sm font-bold ${headingColor}`}>Редактирование промокода</h4>
+                        
+                        {editError && (
+                          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                            <p className="text-sm text-red-400">{editError}</p>
+                          </div>
+                        )}
 
-                    {/* Dates */}
-                    <div className={`grid grid-cols-2 gap-3 text-xs ${labelColor}`}>
-                      <div>
-                        <span className="font-bold">Создан:</span> {formatDate(discount.createdAt)}
-                      </div>
-                      <div>
-                        <span className="font-bold">Истекает:</span> {formatDate(discount.expiresAt)}
-                      </div>
-                      {discount.isUsed && discount.usedAt && (
-                        <div className="col-span-2">
-                          <span className="font-bold">Использован:</span> {formatDate(discount.usedAt)}
+                        {/* Edit Discount Percent */}
+                        <div className="space-y-2">
+                          <label className={`text-xs font-bold ${labelColor}`}>Скидка для пользователя (%)</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={editDiscountPercent}
+                              onChange={(e) => setEditDiscountPercent(e.target.value)}
+                              min="1"
+                              max="100"
+                              className={`w-full px-3 py-2 pr-8 rounded-lg border text-sm ${inputBg} ${headingColor} focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50`}
+                            />
+                            <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Actions */}
-                    {!discount.isUsed && discount.isActive && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeactivate(discount.id) }}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-all"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          Деактивировать
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(discount.id) }}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Удалить
-                        </button>
-                      </div>
-                    )}
+                        {/* Edit Actual Discount Percent */}
+                        <div className="space-y-2">
+                          <label className={`text-xs font-bold ${labelColor}`}>Реальная скидка (%)</label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={editActualDiscountPercent}
+                              onChange={(e) => setEditActualDiscountPercent(e.target.value)}
+                              min="1"
+                              max="100"
+                              className={`w-full px-3 py-2 pr-8 rounded-lg border text-sm ${inputBg} ${headingColor} focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50`}
+                            />
+                            <Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                          </div>
+                        </div>
 
-                    {discount.isUsed && (
-                      <div className="flex items-center gap-2 text-xs text-gray-400">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Промокод был использован</span>
+                        {/* Edit Expiry */}
+                        <div className="space-y-2">
+                          <label className={`text-xs font-bold ${labelColor}`}>Срок действия</label>
+                          <input
+                            type="datetime-local"
+                            value={editExpiresAt}
+                            onChange={(e) => setEditExpiresAt(e.target.value)}
+                            className={`w-full px-3 py-2 rounded-lg border text-sm ${inputBg} ${headingColor} focus:outline-none focus:ring-2 focus:ring-[#4C7F6E]/50`}
+                          />
+                        </div>
+
+                        {/* Edit Spheres */}
+                        <div className="space-y-2">
+                          <label className={`text-xs font-bold ${labelColor}`}>Сферы</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                            {CATEGORY_OPTIONS.map(cat => {
+                              const meta = EARNINGS_CATEGORY_META[cat]
+                              const isSelected = editSpheres.includes(cat)
+                              return (
+                                <button
+                                  key={cat}
+                                  type="button"
+                                  onClick={() => toggleEditSphere(cat)}
+                                  className={`p-2 rounded-lg border text-left transition-all ${
+                                    isSelected
+                                      ? 'border-[#4C7F6E] bg-[#4C7F6E]/10 text-[#4C7F6E]'
+                                      : `${inputBg} hover:border-white/20 ${labelColor}`
+                                  }`}
+                                >
+                                  <span className="text-[10px] font-bold">{meta.shortName}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Save/Cancel */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSaveEdit}
+                            disabled={editLoading}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#4C7F6E] text-white text-xs font-bold hover:bg-[#3d6660] transition-all disabled:opacity-50"
+                          >
+                            {editLoading ? (
+                              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            {editLoading ? 'Сохранение...' : 'Сохранить'}
+                          </button>
+                          <button
+                            onClick={cancelEditing}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                              theme === 'dark' ? 'bg-white/5 hover:bg-white/10 text-gray-400 border border-white/10' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 border border-gray-200'
+                            }`}
+                          >
+                            Отмена
+                          </button>
+                        </div>
                       </div>
+                    ) : (
+                      <>
+                        {/* Spheres List */}
+                        <div>
+                          <p className={`text-xs font-bold ${labelColor} mb-2`}>Сферы:</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {discount.spheres.map(s => (
+                              <span key={s} className="px-2 py-1 rounded-lg bg-[#4C7F6E]/10 text-[#4C7F6E] text-[10px] font-bold">
+                                {EARNINGS_CATEGORY_META[s]?.shortName || s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Dates */}
+                        <div className={`grid grid-cols-2 gap-3 text-xs ${labelColor}`}>
+                          <div>
+                            <span className="font-bold">Создан:</span> {formatDate(discount.createdAt)}
+                          </div>
+                          <div>
+                            <span className="font-bold">Истекает:</span> {formatDate(discount.expiresAt)}
+                          </div>
+                          {discount.isUsed && discount.usedAt && (
+                            <div className="col-span-2">
+                              <span className="font-bold">Использован:</span> {formatDate(discount.usedAt)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        {!discount.isUsed && discount.isActive && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); startEditing(discount) }}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#4C7F6E]/10 text-[#4C7F6E] text-xs font-bold hover:bg-[#4C7F6E]/20 transition-all"
+                            >
+                              <Tag className="w-3.5 h-3.5" />
+                              Редактировать
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeactivate(discount.id) }}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-all"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Деактивировать
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDelete(discount.id) }}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Удалить
+                            </button>
+                          </div>
+                        )}
+
+                        {discount.isUsed && (
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Промокод был использован</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
