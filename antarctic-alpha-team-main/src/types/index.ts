@@ -1466,7 +1466,8 @@ export interface PoolDiscount {
   userId: string
   userName?: string
   code: string
-  discountPercent: number
+  discountPercent: number       // Скидка, которую видит пользователь (задана админом)
+  actualDiscountPercent: number // Реальная скидка, применяемая при расчёте
   spheres: PoolDiscountSphere[]
   expiresAt: string
   isActive: boolean
