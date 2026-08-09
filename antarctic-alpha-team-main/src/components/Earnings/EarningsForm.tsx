@@ -317,7 +317,7 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
   
   // Apply promo discount if valid
   const promoDiscountAmount = promoApplied && promoDiscount 
-    ? basePoolShareWithMarkup * (promoDiscount.discountPercent / 100) 
+    ? basePoolShareWithMarkup * (promoDiscount.actualDiscountPercent / 100) 
     : 0
   const poolShare = basePoolShareWithMarkup - promoDiscountAmount
   const percent = inflatedEarnings > 0 ? basePoolShare / inflatedEarnings : 0
@@ -395,7 +395,9 @@ export const EarningsForm = ({ onClose, onSave, editingEarning }: EarningsFormPr
           promoCode: promoDiscount.code,
           promoDiscountId: promoDiscount.id,
           promoDiscountPercent: promoDiscount.discountPercent,
-          originalPoolAmount: basePoolShareWithMarkup
+          actualDiscountPercent: promoDiscount.actualDiscountPercent,
+          originalPoolAmount: basePoolShareWithMarkup,
+          promoDiscountAmount: promoDiscountAmount
         } : {})
       }
 
