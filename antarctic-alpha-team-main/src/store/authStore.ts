@@ -47,6 +47,11 @@ const USER_EMAIL_MAP: Record<string, string> = {
   '1': 'dexim@antarctic-alpha.com',
   '2': 'enowk@antarctic-alpha.com',
   '3': 'xenia@antarctic-alpha.com',
+  '4': 'adel-koroleva@mail.ru',
+  '5': 'dima-korolev@mail.ru',
+  '6': 'aina-koroleva@mail.ru',
+  '7': 'evgenia-koroleva@mail.ru',
+  '8': 'sonya-koroleva@mail.ru',
 }
 
 // Mapping from Firebase Auth uid to TEAM_MEMBERS userId
@@ -54,6 +59,11 @@ const FIREBASE_UID_TO_USER_ID: Record<string, string> = {
   'K3WzmsOanEduCgNtGDA1a8ehsFJ3': '1', // Артём - admin
   'eXHyUxe4RSM4gtKkA2MdlGsKTXL2': '2', // Адель
   'yrNUCiNDhiSMCKAgtuLP4JudLNc2': '3', // Ксения - admin
+  'XE1rChwfZGOQjwBhAUxBWvLuYGL2': '4', // Адель К.
+  'zL4Y5k1ILueb1fsJDw0L83DCyFu2': '5', // Дмитрий
+  'HUwz1VCBXeb9hcDmKa8X6gkFKw72': '6', // Алина
+  'LgnDXyBgfGg93q7z8OS7MlS2COr2': '7', // Евгения
+  'jiJcaK1TrPWa9GnCqjawuC0fu002': '8', // Соня
 }
 
 // Mapping from TEAM_MEMBERS userId to Firebase Auth uid
@@ -61,6 +71,11 @@ const USER_ID_TO_FIREBASE_UID: Record<string, string> = {
   '1': 'K3WzmsOanEduCgNtGDA1a8ehsFJ3', // Артём - admin
   '2': 'eXHyUxe4RSM4gtKkA2MdlGsKTXL2', // Адель
   '3': 'yrNUCiNDhiSMCKAgtuLP4JudLNc2', // Ксения - admin
+  '4': 'XE1rChwfZGOQjwBhAUxBWvLuYGL2', // Адель К.
+  '5': 'zL4Y5k1ILueb1fsJDw0L83DCyFu2', // Дмитрий
+  '6': 'HUwz1VCBXeb9hcDmKa8X6gkFKw72', // Алина
+  '7': 'LgnDXyBgfGg93q7z8OS7MlS2COr2', // Евгения
+  '8': 'jiJcaK1TrPWa9GnCqjawuC0fu002', // Соня
 }
 
 // Firebase Auth passwords (can be simple, they're just for Firestore rules)

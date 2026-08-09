@@ -477,6 +477,11 @@ export const TEAM_MEMBERS: User[] = [
   { id: '1', name: 'Артём', login: 'dexim-artyom03!1@antarctic-alpha', password: 'dexim03@antarcic-alpha_admin-038392!378393neh9!', recoveryCode: '20035009', authCode: '2580', avatar: '/avatars/artyom.jpg', phone: '79778730513', role: 'admin', positions: ['COO', 'Co-Founder'], primaryPosition: 'COO' },
   { id: '2', name: 'Адель', login: 'enowk-kirill@antarctic-alpha', password: 'enowk05antarctic_alpha-kirill@', recoveryCode: '20051001', authCode: '3691', avatar: '/avatars/adel.jpg', phone: '79172480769', role: 'user', positions: ['CTO'], primaryPosition: 'CTO' },
   { id: '3', name: 'Ксения', login: 'xenia@antarctic-alpha', password: 'xenia-@antarctic-alpha03-RSPO', recoveryCode: '20036008', authCode: '4826', avatar: '/avatars/kseniya.jpg', phone: '79378159355', role: 'admin', positions: ['CEO', 'Co-Founder'], primaryPosition: 'CEO' },
+  { id: '4', name: 'Адель К.', login: 'adel-koroleva@antarctic-alpha', password: '20033005', recoveryCode: '20033005', authCode: '1111', avatar: '/avatars/adel-k.jpg', role: 'user', positions: ['Trader Base'], primaryPosition: 'Trader Base' },
+  { id: '5', name: 'Дмитрий', login: 'dima-korolev@antarctic-alpha', password: '20033005', recoveryCode: '20033005', authCode: '2222', avatar: '/avatars/dmitry.jpg', role: 'user', positions: ['Trader Base'], primaryPosition: 'Trader Base' },
+  { id: '6', name: 'Алина', login: 'aina-koroleva@antarctic-alpha', password: '20033005', recoveryCode: '20033005', authCode: '3333', avatar: '/avatars/alina.jpg', role: 'user', positions: ['Trader Base'], primaryPosition: 'Trader Base' },
+  { id: '7', name: 'Евгения', login: 'evgenia-koroleva@antarctic-alpha', password: '20033005', recoveryCode: '20033005', authCode: '4444', avatar: '/avatars/evgenia.jpg', role: 'user', positions: ['Trader Base'], primaryPosition: 'Trader Base' },
+  { id: '8', name: 'Соня', login: 'sonya-koroleva@antarctic-alpha', password: '20033005', recoveryCode: '20033005', authCode: '5555', avatar: '/avatars/sonya.jpg', role: 'user', positions: ['Trader Base'], primaryPosition: 'Trader Base' },
 ]
 
 export const TASK_CATEGORIES: Record<TaskCategory, { label: string; icon: string; color: string }> = {

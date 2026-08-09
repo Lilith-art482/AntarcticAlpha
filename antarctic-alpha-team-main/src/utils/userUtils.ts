@@ -7,8 +7,11 @@ const defaultNicknameMap: Record<string, string> = {
   '1': 'Dex',
   '2': 'Enowk',
   '3': 'Xenia',
-  '4': 'Olenka',
-  '5': 'Sydney',
+  '4': 'AdelK',
+  '5': 'Dima',
+  '6': 'Alina',
+  '7': 'Zhenya',
+  '8': 'Sonya',
 }
 
 // Cache for custom nicknames to avoid multiple async calls
