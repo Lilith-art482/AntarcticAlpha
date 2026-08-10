@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { User } from '@/types'
 import { useUserAvatar } from '@/utils/userUtils'
 
@@ -12,6 +12,8 @@ interface AvatarProps {
 const Avatar: React.FC<AvatarProps> = ({ user, userId, size = 'md', className = '' }) => {
   const effectiveUserId = userId || user?.id || ''
   const avatarUrl = useUserAvatar(effectiveUserId, user?.avatar)
+  const [imgError, setImgError] = useState(false)
+
   const getSizeClasses = () => {
     switch (size) {
       case 'sm': return 'w-8 h-8 text-sm'
@@ -28,6 +30,8 @@ const Avatar: React.FC<AvatarProps> = ({ user, userId, size = 'md', className = 
       : names[0][0]
   }
 
+  const showAvatar = avatarUrl && !imgError
+
   return (
     <div
       className={`
@@ -38,11 +42,12 @@ const Avatar: React.FC<AvatarProps> = ({ user, userId, size = 'md', className = 
         ${className}
       `}
     >
-      {avatarUrl ? (
+      {showAvatar ? (
         <img
           src={avatarUrl}
           alt={user?.name || 'User'}
           className="w-full h-full rounded-full object-cover"
+          onError={() => setImgError(true)}
         />
       ) : (
         <span>{getInitials()}</span>
