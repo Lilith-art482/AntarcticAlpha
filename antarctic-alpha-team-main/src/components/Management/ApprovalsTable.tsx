@@ -259,21 +259,6 @@ export const ApprovalsTable = () => {
             <div className="font-semibold text-[#4E6E49] dark:text-emerald-400">
               {category?.label || afterEarning.category}: {afterEarning.amount.toLocaleString()} ₽
             </div>
-            {afterEarning.transactionHash && (
-              <div className="text-xs text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Транзакция:</span>{' '}
-                <a
-                  href={afterEarning.transactionHash.startsWith('http') ? afterEarning.transactionHash : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-[#4E6E49] dark:hover:text-emerald-400 break-all"
-                >
-                  {afterEarning.transactionHash.length > 30 
-                    ? afterEarning.transactionHash.substring(0, 30) + '...' 
-                    : afterEarning.transactionHash}
-                </a>
-              </div>
-            )}
             {afterEarning.receivedWallet && (
               <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
                 <span className="font-medium">Кошелёк:</span> {afterEarning.receivedWallet}
@@ -290,21 +275,6 @@ export const ApprovalsTable = () => {
             <div className="font-semibold text-[#4E6E49] dark:text-emerald-400">
               {category?.label || afterEarning.category}: {beforeEarning.amount.toLocaleString()} ₽ → {afterEarning.amount.toLocaleString()} ₽
             </div>
-            {afterEarning.transactionHash && (
-              <div className="text-xs text-gray-600 dark:text-gray-400">
-                <span className="font-medium">Транзакция:</span>{' '}
-                <a
-                  href={afterEarning.transactionHash.startsWith('http') ? afterEarning.transactionHash : undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-[#4E6E49] dark:hover:text-emerald-400 break-all"
-                >
-                  {afterEarning.transactionHash.length > 30 
-                    ? afterEarning.transactionHash.substring(0, 30) + '...' 
-                    : afterEarning.transactionHash}
-                </a>
-              </div>
-            )}
             {afterEarning.receivedWallet && (
               <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
                 <span className="font-medium">Кошелёк:</span> {afterEarning.receivedWallet}

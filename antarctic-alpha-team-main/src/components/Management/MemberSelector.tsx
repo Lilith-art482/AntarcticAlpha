@@ -62,7 +62,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({ selectedUserId, 
     }, [])
 
     const filteredMembers = allUsers.filter(m => {
-        const name = m.name.toLowerCase()
+        const name = (m.name || '').toLowerCase()
         const query = search.toLowerCase()
         return name.includes(query)
     })
