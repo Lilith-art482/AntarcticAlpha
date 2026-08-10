@@ -80,7 +80,7 @@ export const FeedbackAdmin = () => {
     const nickname = getUserNicknameSync(feedback.authorId)?.toLowerCase() || ''
     return (
       feedback.id.toLowerCase().includes(query) ||
-      feedback.authorName.toLowerCase().includes(query) ||
+      (feedback.authorName || '').toLowerCase().includes(query) ||
       nickname.includes(query)
     )
   })

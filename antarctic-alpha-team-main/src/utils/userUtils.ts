@@ -113,7 +113,7 @@ export const generatePassword = (length: number = 10): string => {
  */
 export const generateLogin = (name: string, existingLogins: string[] = []): string => {
   // Clean the name - take first word, lowercase, remove special chars
-  const baseName = name.split(' ')[0]
+  const baseName = (name || '').split(' ')[0]
     .toLowerCase()
     .replace(/[^a-zа-яё0-9]/gi, '')
     .slice(0, 8)

@@ -120,8 +120,8 @@ export const FeedbackList = () => {
       if (searchTerm) {
         const search = searchTerm.toLowerCase()
         return (
-          f.authorName.toLowerCase().includes(search) ||
-          f.authorLogin.toLowerCase().includes(search) ||
+          (f.authorName || '').toLowerCase().includes(search) ||
+          (f.authorLogin || '').toLowerCase().includes(search) ||
           f.id.toLowerCase().includes(search)
         )
       }
