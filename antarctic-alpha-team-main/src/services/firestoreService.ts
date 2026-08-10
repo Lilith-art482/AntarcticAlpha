@@ -2391,7 +2391,7 @@ export const getAllUsers = async (): Promise<User[]> => {
     id: docSnap.id,
     ...docSnap.data(),
   } as User))
-  const sorted = users.sort((a, b) => a.name.localeCompare(b.name))
+  const sorted = users.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   _allUsersCache = sorted
   _allUsersCacheTime = now
   return sorted
