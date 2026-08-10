@@ -189,34 +189,34 @@ export const useUserAvatar = (userId: string, initialAvatar?: string): string | 
   const [avatar, setAvatar] = useState(initialAvatar)
 
   useEffect(() => {
-    const fetchAvatar = async () => {
-      // Find in TEAM_MEMBERS first
-      const member = TEAM_MEMBERS.find(m => m.id === userId)
-      let currentAvatar = member?.avatar
-
-      // Then check Firestore (could be improved by adding getUserAvatar to firestoreService)
-      try {
-        const { users } = await getAllUsers().then(u => ({ users: u }))
-        const firestoreUser = users.find(u => u.id === userId)
-        if (firestoreUser?.avatar) {
-          currentAvatar = firestoreUser.avatar
-        }
-      } catch (e) { /* ignore */ }
-
-      setAvatar(currentAvatar)
-    }
-
-    // Всегда сбрасываем аватар при изменении userId, чтобы не показывать аватар предыдущего пользователя
-    if (userId) {
-      fetchAvatar()
-    } else {
+    if (!userId) {
       setAvatar(undefined)
+      return
     }
+
+    // Find in TEAM_MEMBERS first (sync, no network)
+    const member = TEAM_MEMBERS.find(m => m.id === userId)
+    let currentAvatar = member?.avatar
+
+    // Then check Firestore cache (getAllUsers has 30s cache)
+    getAllUsers().then(users => {
+      const firestoreUser = users.find(u => u.id === userId)
+      if (firestoreUser?.avatar) {
+        currentAvatar = firestoreUser.avatar
+      }
+      setAvatar(currentAvatar)
+    }).catch(() => {
+      // On error, keep TEAM_MEMBERS fallback
+      setAvatar(currentAvatar)
+    })
 
     const handleUpdate = (event: Event) => {
       const customEvent = event as CustomEvent<{ userId: string }>
       if (!customEvent.detail?.userId || customEvent.detail.userId === userId) {
-        fetchAvatar()
+        getAllUsers().then(users => {
+          const firestoreUser = users.find(u => u.id === userId)
+          setAvatar(firestoreUser?.avatar || member?.avatar)
+        }).catch(() => {})
       }
     }
 

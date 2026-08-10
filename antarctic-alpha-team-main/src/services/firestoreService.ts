@@ -22,6 +22,16 @@ import { clearNicknameCache, getUserNicknameAsync } from '@/utils/userUtils'
 import { formatDate } from '@/utils/dateUtils'
 import { logger } from '@/utils/logger'
 
+// Cache for getAllUsers to avoid redundant Firestore reads
+let _allUsersCache: User[] | null = null
+let _allUsersCacheTime = 0
+const ALL_USERS_CACHE_TTL = 30_000 // 30 seconds
+
+const invalidateUsersCache = () => {
+  _allUsersCache = null
+  _allUsersCacheTime = 0
+}
+
 const DATA_RETENTION_DAYS = 30
 
 const pad = (value: number) => value.toString().padStart(2, '0')
@@ -2370,6 +2380,10 @@ export const getUserById = async (userId: string): Promise<User | null> => {
 
 // User Management Functions
 export const getAllUsers = async (): Promise<User[]> => {
+  const now = Date.now()
+  if (_allUsersCache && now - _allUsersCacheTime < ALL_USERS_CACHE_TTL) {
+    return _allUsersCache
+  }
   const usersRef = collection(db, 'users')
   const snapshot = await getDocs(usersRef)
   // Sort in memory to avoid composite index requirement
@@ -2377,7 +2391,10 @@ export const getAllUsers = async (): Promise<User[]> => {
     id: docSnap.id,
     ...docSnap.data(),
   } as User))
-  return users.sort((a, b) => a.name.localeCompare(b.name))
+  const sorted = users.sort((a, b) => a.name.localeCompare(b.name))
+  _allUsersCache = sorted
+  _allUsersCacheTime = now
+  return sorted
 }
 
 export const addUser = async (user: Omit<User, 'id'>): Promise<string> => {
@@ -2386,6 +2403,7 @@ export const addUser = async (user: Omit<User, 'id'>): Promise<string> => {
     Object.entries(user).filter(([_, value]: [string, any]) => value !== undefined)
   )
   const result = await addDoc(usersRef, cleanUser)
+  invalidateUsersCache()
   return result.id
 }
 
@@ -2395,6 +2413,7 @@ export const updateUser = async (id: string, updates: Partial<User>): Promise<vo
     Object.entries(updates).filter(([_, value]: [string, any]) => value !== undefined)
   )
   await setDoc(userRef, cleanUpdates, { merge: true })
+  invalidateUsersCache()
 }
 
 // Update user email
@@ -2507,6 +2526,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
     logger.log(`[deleteUser] Deleted user document: ${userId}`)
   }
 
+  invalidateUsersCache()
   logger.log(`[deleteUser] Completed deletion for user: ${userId}`)
 }
 
